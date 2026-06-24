@@ -1,0 +1,8 @@
+---
+# Yaratiladigan foydalanuvchilar ro'yxati (dict). Struktura uchun
+# group_vars/all/users.yml dagi izohga qarang.
+users_users: []
+
+# Yangi foydalanuvchilar uchun standart qiymatlar
+users_default_shell: /bin/bash
+users_create_home: true

@@ -1,0 +1,7 @@
+---
+# Tizim vaqt mintaqasi
+basic_timezone: "UTC"
+
+# Foydalanuvchi qo'shadigan qo'shimcha paketlar (OS-ga bog'liq emas).
+# Asosiy paketlar vars/<OS>.yml dagi basic_base_packages da.
+basic_extra_packages: []

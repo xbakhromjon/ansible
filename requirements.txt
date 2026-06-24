@@ -1,0 +1,5 @@
+# Eski OS (Ubuntu 18.04, CentOS 8 — Python 3.6) ni boshqarish uchun
+# ansible-core 2.16 oxirgi mos versiya (managed-node Python 3.6+ ni qo'llaydi).
+# 2.17+ managed-node uchun Python 3.7+ talab qiladi va apt/dnf modullari
+# eski hostlarda python-apt/dnf bindinglari sabab python3.6 ga respawn qilib yiqiladi.
+ansible-core>=2.16,<2.17

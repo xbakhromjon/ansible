@@ -1,0 +1,23 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  tasks:
+    - name: Base paketlar o'rnatilganini tekshirish
+      ansible.builtin.command: "{{ item }} --version"
+      changed_when: false
+      loop:
+        - git
+        - curl
+        - tree
+
+    - name: Timezone to'g'ri o'rnatilganini tekshirish
+      ansible.builtin.command: date +%Z
+      register: tz_check
+      changed_when: false
+
+    - name: Timezone Asia/Tashkent (+05) ekanini tasdiqlash
+      ansible.builtin.assert:
+        that:
+          - "'+05' in tz_check.stdout or tz_check.stdout == '+05'"
+        fail_msg: "Timezone kutilgan +05 emas: {{ tz_check.stdout }}"

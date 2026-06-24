@@ -1,0 +1,10 @@
+---
+- name: Converge
+  hosts: all
+  become: true
+  vars:
+    basic_timezone: "Asia/Tashkent"
+    basic_extra_packages:
+      - tree
+  roles:
+    - role: basic

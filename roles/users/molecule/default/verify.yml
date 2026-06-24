@@ -1,0 +1,32 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  tasks:
+    - name: deploy foydalanuvchisi mavjudligini tekshirish
+      ansible.builtin.getent:
+        database: passwd
+        key: deploy
+
+    - name: appuser foydalanuvchisi mavjudligini tekshirish
+      ansible.builtin.getent:
+        database: passwd
+        key: appuser
+
+    - name: deploy uchun sudoers fayli borligini tekshirish
+      ansible.builtin.stat:
+        path: /etc/sudoers.d/deploy
+      register: deploy_sudoers
+      failed_when: not deploy_sudoers.stat.exists
+
+    - name: appuser uchun sudoers fayli YO'Qligini tekshirish
+      ansible.builtin.stat:
+        path: /etc/sudoers.d/appuser
+      register: appuser_sudoers
+      failed_when: appuser_sudoers.stat.exists
+
+    - name: deploy uchun authorized_keys borligini tekshirish
+      ansible.builtin.stat:
+        path: /home/deploy/.ssh/authorized_keys
+      register: deploy_keys
+      failed_when: not deploy_keys.stat.exists

@@ -1,0 +1,14 @@
+---
+driver:
+  name: docker
+platforms:
+  - name: ubuntu-2404
+    image: geerlingguy/docker-ubuntu2404-ansible:latest
+    pre_build_image: true
+  - name: rocky-10
+    image: geerlingguy/docker-rockylinux10-ansible:latest
+    pre_build_image: true
+provisioner:
+  name: ansible
+verifier:
+  name: ansible

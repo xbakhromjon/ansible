@@ -1,0 +1,24 @@
+---
+# Server uchun yaratiladigan foydalanuvchilar.
+# Har biri dict:
+#   name      (majburiy) — login nomi
+#   shell     — login shell (default: users_default_shell)
+#   groups    — qo'shimcha guruhlar (masalan [docker]); guruh mavjud bo'lishi kerak
+#   sudo      — true bo'lsa /etc/sudoers.d/<name> (passwordless sudo)
+#   ssh_keys  — authorized_keys ro'yxati
+#   password  — shifrlangan parol hash (ixtiyoriy)
+#   state     — present (default) / absent
+#
+# Misol:
+# users_users:
+#   - name: deploy
+#     shell: /bin/bash
+#     sudo: true
+#     ssh_keys:
+#       - "ssh-ed25519 AAAA... deploy@laptop"
+#   - name: alice
+#     groups: [docker]
+#     ssh_keys:
+#       - "ssh-ed25519 AAAA... alice@laptop"
+
+users_users: []

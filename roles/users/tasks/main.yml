@@ -1,0 +1,4 @@
+---
+- name: Manage users
+  ansible.builtin.include_tasks: users.yml
+  tags: [users]

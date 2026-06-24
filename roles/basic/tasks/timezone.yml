@@ -1,0 +1,5 @@
+---
+- name: Set system timezone
+  community.general.timezone:
+    name: "{{ basic_timezone }}"
+  tags: [basic, basic_timezone]

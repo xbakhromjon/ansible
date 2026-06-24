@@ -1,0 +1,21 @@
+---
+- name: Update apt cache (Debian)
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+  tags: [basic, basic_packages]
+
+- name: Install base packages (Debian)
+  ansible.builtin.apt:
+    name: "{{ basic_base_packages + basic_extra_packages }}"
+    state: present
+  when: ansible_os_family == "Debian"
+  tags: [basic, basic_packages]
+
+- name: Install base packages (RedHat)
+  ansible.builtin.dnf:
+    name: "{{ basic_base_packages + basic_extra_packages }}"
+    state: present
+  when: ansible_os_family == "RedHat"
+  tags: [basic, basic_packages]

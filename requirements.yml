@@ -1,0 +1,11 @@
+---
+# Versiyalar ataylab pin qilingan: eski OS (Python 3.6) ni boshqaramiz va
+# ansible-core 2.16 ishlatamiz. Yangi collection versiyalari (community.general
+# 10+, ansible.posix 2+) ansible-core >=2.17 va target Python 3.7+ talab qiladi
+# (modullarida `from __future__ import annotations` bor) -> 3.6 da yiqiladi.
+# Quyidagilar 2.16 + py3.6 bilan mos oxirgi xavfsiz versiyalar.
+collections:
+  - name: community.general
+    version: "9.5.0"
+  - name: ansible.posix
+    version: "1.6.2"

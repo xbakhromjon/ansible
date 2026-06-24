@@ -1,0 +1,6 @@
+---
+- name: Apply basic role
+  hosts: all
+  become: true
+  roles:
+    - role: basic

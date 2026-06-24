@@ -1,0 +1,9 @@
+.venv/
+.venv-*/
+collections/
+log/*.log
+*.retry
+.molecule/
+__pycache__/
+.idea
+/ansible.iml
