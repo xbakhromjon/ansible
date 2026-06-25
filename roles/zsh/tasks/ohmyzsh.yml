@@ -1,0 +1,37 @@
+---
+# Oh My Zsh framework'ni UMUMIY joyga o'rnatadi (bir marta, hamma user uchun).
+# Root egaligida, read-only, world-readable. Per-user .zshrc shu yerga ishora
+# qiladi (users roli). Bu per-user klon (egalik/SELinux/disk muammolari) ni
+# bartaraf qiladi.
+
+- name: Install shared Oh My Zsh framework
+  ansible.builtin.git:
+    repo: "{{ zsh_ohmyzsh_repo }}"
+    dest: "{{ zsh_ohmyzsh_dir }}"
+    version: master
+    depth: 1
+    update: false
+  tags: [zsh]
+
+- name: Clone external zsh plugins (shared)
+  ansible.builtin.git:
+    repo: "{{ item.repo }}"
+    dest: "{{ zsh_ohmyzsh_dir }}/custom/plugins/{{ item.name }}"
+    version: "{{ item.version | default('master') }}"
+    depth: 1
+    update: false
+  loop: "{{ zsh_external_plugins }}"
+  loop_control:
+    label: "{{ item.name }}"
+  tags: [zsh]
+
+# Hamma user o'qiy olishi uchun top katalog world-readable bo'lsin (git klon
+# odatda 0755 beradi; bu kafolat).
+- name: Ensure shared Oh My Zsh directory is world-readable
+  ansible.builtin.file:
+    path: "{{ zsh_ohmyzsh_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  tags: [zsh]

@@ -42,26 +42,21 @@ users_prune_keep: []
 # bo'lgani uchun loyiha ildizidagi files/ssh_keys ga ishora qilamiz.
 users_ssh_keys_dir: "{{ playbook_dir }}/../files/ssh_keys"
 
-# --- Per-user zsh muhiti (Oh My Zsh + plugin + theme) ---
-# User yaratilgandan KEYIN uning zsh dotfiles'ini sozlaydi (present + zsh shell).
-# Bu shu yerda, chunki userlar aynan users rolida yaratiladi.
-# Targetda `curl` va `git` bo'lishi kerak (basic roli o'rnatadi). Binar mavjud
-# bo'lishi uchun `zsh` roli `users` dan oldin ishlasin. false => faqat shell.
+# --- Per-user zsh muhiti (.zshrc) ---
+# User yaratilgandan KEYIN uning .zshrc'sini joylaydi (present + zsh shell).
+# Oh My Zsh framework va pluginlar `zsh` roli tomonidan UMUMIY (shared)
+# o'rnatilgan — bu yer faqat per-user .zshrc (shared'ga ishora). false => shell.
 users_zsh_setup: true
 
 # ~/.zshrc dagi ZSH_THEME.
 users_zsh_theme: "dieter"
 
-# plugins=(...) — Oh My Zsh built-in (git) + tashqi. Tartib muhim:
-# zsh-syntax-highlighting OXIRIDA bo'lishi kerak.
+# plugins=(...) — yoqiladigan pluginlar (shared OMZ'da o'rnatilgan bo'lishi kerak).
+# Tartib muhim: zsh-syntax-highlighting OXIRIDA.
 users_zsh_plugins:
   - git
   - zsh-autosuggestions
   - zsh-syntax-highlighting
 
-# Git'dan klonlanadigan TASHQI pluginlar (built-in'lar bu yerda emas).
-users_zsh_external_plugins:
-  - name: zsh-autosuggestions
-    repo: https://github.com/zsh-users/zsh-autosuggestions.git
-  - name: zsh-syntax-highlighting
-    repo: https://github.com/zsh-users/zsh-syntax-highlighting.git
+# Shared Oh My Zsh joyi (zsh roli o'rnatadi). .zshrc shu ZSH'ga ishora qiladi.
+users_zsh_ohmyzsh_dir: "{{ zsh_ohmyzsh_dir | default('/usr/share/oh-my-zsh') }}"

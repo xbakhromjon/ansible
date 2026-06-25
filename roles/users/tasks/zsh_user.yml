@@ -1,13 +1,8 @@
 ---
-# Bitta user uchun zsh dotfiles: Oh My Zsh + tashqi pluginlar + theme.
-# users.yml ichidan, user yaratilgandan KEYIN chaqiriladi (present + zsh shell).
+# Per-user zsh: faqat .zshrc joylanadi (shared Oh My Zsh'ga ishora qiladi).
+# Framework va pluginlar `zsh` roli tomonidan UMUMIY o'rnatilgan — bu yerda
+# per-user klon YO'Q (egalik/SELinux/disk muammolari bartaraf etilgan).
 # loop_var: zuser (users_users dagi dict).
-#
-# MUHIM: hammasi ROOT sifatida (play become) bajariladi, oxirida egasi userga
-# beriladi. become_user bilan unprivileged userga o'tish CentOS/SELinux'da
-# temp-katalog (/home/<user>/.ansible) va ruxsat muammolarini keltiradi.
-# Oh My Zsh ni curl|sh o'rniga git bilan klonlaymiz — idempotent, tarmoq
-# skriptisiz, faqat git kerak (curl emas).
 - name: zsh — resolve home for {{ zuser.name }}
   ansible.builtin.getent:
     database: passwd
@@ -19,43 +14,21 @@
     zsh_user_home: "{{ ansible_facts.getent_passwd[zuser.name][4] }}"
   tags: [users, users_zsh]
 
-- name: zsh — install Oh My Zsh framework for {{ zuser.name }}
-  ansible.builtin.git:
-    repo: https://github.com/ohmyzsh/ohmyzsh.git
-    dest: "{{ zsh_user_home }}/.oh-my-zsh"
-    version: master
-    depth: 1
-    update: false
+# OMZ keshini per-user yoziladigan joyga yo'naltiramiz (shared $ZSH read-only).
+- name: zsh — ensure per-user OMZ cache dir for {{ zuser.name }}
+  ansible.builtin.file:
+    path: "{{ zsh_user_home }}/.cache/oh-my-zsh"
+    state: directory
+    owner: "{{ zuser.name }}"
+    group: "{{ zuser.name }}"
+    mode: "0755"
   tags: [users, users_zsh]
 
-- name: zsh — clone external plugins for {{ zuser.name }}
-  ansible.builtin.git:
-    repo: "{{ item.repo }}"
-    dest: "{{ zsh_user_home }}/.oh-my-zsh/custom/plugins/{{ item.name }}"
-    version: "{{ item.version | default('master') }}"
-    depth: 1
-    update: false
-  loop: "{{ users_zsh_external_plugins }}"
-  loop_control:
-    label: "{{ item.name }}"
-  tags: [users, users_zsh]
-
-- name: zsh — deploy .zshrc for {{ zuser.name }} (theme + plugins)
+- name: zsh — deploy .zshrc for {{ zuser.name }} (shared OMZ + theme + plugins)
   ansible.builtin.template:
     src: zshrc.j2
     dest: "{{ zsh_user_home }}/.zshrc"
     owner: "{{ zuser.name }}"
     group: "{{ zuser.name }}"
     mode: "0644"
-  tags: [users, users_zsh]
-
-# Klon root sifatida bo'lgani uchun egasini userga beramiz (.oh-my-zsh + ichidagi
-# pluginlar). Aks holda zsh user fayllariga yoza olmaydi (.zcompdump va h.k.).
-- name: zsh — own .oh-my-zsh by {{ zuser.name }}
-  ansible.builtin.file:
-    path: "{{ zsh_user_home }}/.oh-my-zsh"
-    state: directory
-    owner: "{{ zuser.name }}"
-    group: "{{ zuser.name }}"
-    recurse: true
   tags: [users, users_zsh]

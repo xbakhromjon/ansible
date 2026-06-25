@@ -1,4 +1,12 @@
-export ZSH="$HOME/.oh-my-zsh"
+# ANSIBLE BOSHQARADI — users roli. Qo'lda tahrirlamang.
+# Oh My Zsh UMUMIY (shared) o'rnatilgan; bu fayl unga ishora qiladi.
+export ZSH="{{ users_zsh_ohmyzsh_dir }}"
+
+# Kesh va .zcompdump — per-user yoziladigan joyda ($ZSH read-only bo'lgani uchun).
+export ZSH_CACHE_DIR="$HOME/.cache/oh-my-zsh"
+
+# Shared/read-only o'rnatma — auto-update o'chiq (root repo'ni user pull qila olmaydi).
+export DISABLE_AUTO_UPDATE="true"
 
 ZSH_THEME="{{ users_zsh_theme }}"
 

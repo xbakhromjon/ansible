@@ -1,7 +1,7 @@
 ---
-# zsh roli: zsh'ni o'rnatadi, /etc/shells ga yozadi va TIZIM default shell'ini
-# zsh qiladi (yangi userlar avtomatik zsh oladi). Per-user sozlash (Oh My Zsh,
-# plugin, theme) `users` rolida — chunki userlar o'sha yerda yaratiladi.
+# zsh roli (TIZIM darajasi): zsh'ni o'rnatadi, /etc/shells, tizim default shell,
+# va Oh My Zsh framework'ni UMUMIY (shared) o'rnatadi — bir marta, hamma user
+# foydalanadi. Per-user .zshrc (theme, plugin tanlovi) `users` rolida.
 - name: Include OS-specific variables
   ansible.builtin.include_vars: "{{ ansible_os_family }}.yml"
   tags: [zsh]
@@ -13,4 +13,9 @@
 - name: Set zsh as the system default shell for new users
   ansible.builtin.include_tasks: default_shell.yml
   when: zsh_set_system_default | bool
+  tags: [zsh]
+
+- name: Install shared Oh My Zsh framework + plugins
+  ansible.builtin.include_tasks: ohmyzsh.yml
+  when: zsh_install_ohmyzsh | bool
   tags: [zsh]
