@@ -2,31 +2,88 @@
 - name: Verify
   hosts: all
   become: true
+  vars:
+    expected_shell: /bin/zsh
   tasks:
-    - name: deploy foydalanuvchisi mavjudligini tekshirish
+    - name: Barcha passwd yozuvlarini olish
       ansible.builtin.getent:
         database: passwd
-        key: deploy
 
-    - name: appuser foydalanuvchisi mavjudligini tekshirish
-      ansible.builtin.getent:
-        database: passwd
-        key: appuser
+    - name: present/disabled userlar mavjudligini tasdiqlash
+      ansible.builtin.assert:
+        that:
+          - item in getent_passwd
+        fail_msg: "{{ item }} foydalanuvchisi topilmadi"
+      loop: [alice, carol, bob]
 
-    - name: deploy uchun sudoers fayli borligini tekshirish
+    - name: shell /bin/zsh ekanini tasdiqlash (default shell)
+      ansible.builtin.assert:
+        that:
+          - getent_passwd[item][5] == expected_shell
+        fail_msg: "{{ item }} shell {{ getent_passwd[item][5] }} (kutilgan {{ expected_shell }})"
+      loop: [alice, carol, bob]
+
+    - name: dave (absent) o'chirilganini tasdiqlash
+      ansible.builtin.assert:
+        that:
+          - "'dave' not in getent_passwd"
+        fail_msg: "dave hali ham mavjud — 'absent' ishlamadi"
+
+    - name: alice uchun sudoers fayli holati
       ansible.builtin.stat:
-        path: /etc/sudoers.d/deploy
-      register: deploy_sudoers
-      failed_when: not deploy_sudoers.stat.exists
+        path: /etc/sudoers.d/alice
+      register: alice_sudo
 
-    - name: appuser uchun sudoers fayli YO'Qligini tekshirish
-      ansible.builtin.stat:
-        path: /etc/sudoers.d/appuser
-      register: appuser_sudoers
-      failed_when: appuser_sudoers.stat.exists
+    - name: alice passwordless sudo olganini tasdiqlash
+      ansible.builtin.assert:
+        that:
+          - alice_sudo.stat.exists
+        fail_msg: "alice uchun /etc/sudoers.d/alice yo'q"
 
-    - name: deploy uchun authorized_keys borligini tekshirish
+    - name: sudosiz/disabled userlarda sudoers fayli holati
       ansible.builtin.stat:
-        path: /home/deploy/.ssh/authorized_keys
-      register: deploy_keys
-      failed_when: not deploy_keys.stat.exists
+        path: "/etc/sudoers.d/{{ item }}"
+      loop: [carol, bob]
+      register: nosudo
+
+    - name: ularda sudoers fayli YO'Qligini tasdiqlash
+      ansible.builtin.assert:
+        that:
+          - not item.stat.exists
+        fail_msg: "{{ item.item }} uchun sudoers fayli bo'lmasligi kerak edi"
+      loop: "{{ nosudo.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: alice authorized_keys mazmunini o'qish
+      ansible.builtin.slurp:
+        src: /home/alice/.ssh/authorized_keys
+      register: alice_ak
+
+    - name: kalit fayldan o'rnatilganini tasdiqlash
+      ansible.builtin.assert:
+        that:
+          - "'alice@molecule-test' in (alice_ak.content | b64decode)"
+        fail_msg: "alice authorized_keys da fixture kaliti yo'q"
+
+    - name: bob parol holatini olish (lock tekshiruvi)
+      ansible.builtin.command: passwd -S bob
+      register: bob_pw
+      changed_when: false
+
+    - name: bob paroli locked ekanini tasdiqlash
+      ansible.builtin.assert:
+        that:
+          - bob_pw.stdout.split()[1] is match('L')
+        fail_msg: "bob locked emas: {{ bob_pw.stdout }}"
+
+    - name: bob account expiry holatini olish
+      ansible.builtin.command: chage -l bob
+      register: bob_chage
+      changed_when: false
+
+    - name: bob account expire qilinganini tasdiqlash (1970)
+      ansible.builtin.assert:
+        that:
+          - "'1970' in bob_chage.stdout"
+        fail_msg: "bob account expire qilinmagan: {{ bob_chage.stdout }}"

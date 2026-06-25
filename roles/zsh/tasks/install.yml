@@ -1,0 +1,47 @@
+---
+- name: Update apt cache (Debian)
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+  tags: [zsh]
+
+- name: Install zsh packages (Debian)
+  ansible.builtin.apt:
+    name: "{{ zsh_packages + zsh_extra_packages }}"
+    state: present
+  when: ansible_os_family == "Debian"
+  tags: [zsh]
+
+- name: Install zsh packages (RedHat)
+  ansible.builtin.dnf:
+    name: "{{ zsh_packages + zsh_extra_packages }}"
+    state: present
+  when: ansible_os_family == "RedHat"
+  tags: [zsh]
+
+# Safety: users roli bu yo'lni login shell qilib qo'yadi. Agar binar yo'q
+# bo'lsa, userlar buzilgan shell bilan qolib login'da tushib qoladi —
+# shuning uchun oldindan mavjudligini tasdiqlaymiz.
+- name: Verify zsh binary exists at expected path
+  ansible.builtin.stat:
+    path: "{{ zsh_shell_path }}"
+  register: zsh_bin
+  tags: [zsh]
+
+- name: Assert zsh binary is present
+  ansible.builtin.assert:
+    that:
+      - zsh_bin.stat.exists
+      - zsh_bin.stat.executable | default(false)
+    fail_msg: >-
+      zsh {{ zsh_shell_path }} da topilmadi. zsh_shell_path ni shu tizimdagi
+      haqiqiy yo'lga moslang (masalan: command -v zsh).
+  tags: [zsh]
+
+- name: Ensure zsh is a valid login shell (/etc/shells)
+  ansible.builtin.lineinfile:
+    path: /etc/shells
+    line: "{{ zsh_shell_path }}"
+    state: present
+  tags: [zsh]

@@ -1,0 +1,13 @@
+---
+- name: Include OS-specific variables
+  ansible.builtin.include_vars: "{{ ansible_os_family }}.yml"
+  tags: [ssh, ssh_allow_users]
+
+- name: Manage sshd AllowUsers
+  ansible.builtin.include_tasks: allow_users.yml
+  tags: [ssh, ssh_allow_users]
+
+- name: Harden sshd (PasswordAuthentication, ...)
+  ansible.builtin.include_tasks: hardening.yml
+  when: ssh_manage_hardening | bool
+  tags: [ssh, ssh_hardening]

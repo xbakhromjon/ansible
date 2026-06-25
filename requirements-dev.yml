@@ -1,0 +1,10 @@
+---
+# Faqat LOKAL TEST (molecule) uchun kolleksiyalar. Production playbook'lar
+# bularni ishlatmaydi — shuning uchun requirements.yml dan ajratilgan.
+#
+# community.docker — molecule'ning docker driveri konteyner yaratish/o'chirish
+# uchun ishlatadi. Test fresh imijlarda (ubuntu-2404, rocky-10) bo'lgani uchun
+# eski-OS (py3.6) cheklovi bu yerga taalluqli emas. 3.x ansible-core 2.16 mos.
+collections:
+  - name: community.docker
+    version: ">=3.4.0,<4.0.0"

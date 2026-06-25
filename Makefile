@@ -5,6 +5,11 @@
 # Ko'rish:          make help
 # Ishga tushirish:  make bootstrap
 #
+# Rol testi (molecule, Docker kerak):
+#   make molecule-setup            # bir marta — molecule o'rnatadi
+#   make test ROLE=basic           # rolni toza konteynerda test qiladi
+#   make test-converge ROLE=zsh    # qo'llab, konteynerni tirik qoldiradi (debug)
+#
 # Ixtiyoriy parametrlar:
 #   make bootstrap LIMIT=ubuntu-18         # faqat bitta host
 #   make basic TAGS=basic_timezone         # faqat bitta teg
@@ -16,7 +21,9 @@ BIN       := $(VENV)/bin
 ANSIBLE   := $(BIN)/ansible
 PLAYBOOK  := $(BIN)/ansible-playbook
 GALAXY    := $(BIN)/ansible-galaxy
+MOLECULE  := $(CURDIR)/$(BIN)/molecule
 
+ROLE      ?= basic
 LIMIT     ?=
 TAGS      ?=
 ARGS      ?=
@@ -25,7 +32,8 @@ _tags      = $(if $(TAGS),--tags $(TAGS),)
 _opts      = $(_limit) $(_tags) $(ARGS)
 
 .DEFAULT_GOAL := help
-.PHONY: help setup deps ping syntax check bootstrap basic users facts hosts clean
+.PHONY: help setup deps ping syntax check bootstrap basic users ssh facts hosts clean \
+        molecule-setup test test-converge test-verify test-login test-destroy
 
 help: ## Shu yordam ro'yxatini ko'rsatadi
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -54,8 +62,35 @@ bootstrap: ## To'liq bootstrap (basic + users)
 basic: ## Faqat basic rol (timezone + asosiy paketlar)
 	$(PLAYBOOK) playbooks/basic.yml $(_opts)
 
-users: ## Faqat users rol (foydalanuvchilar)
+users: ## Faqat users rol (foydalanuvchilar yaratish/disable)
 	$(PLAYBOOK) playbooks/users.yml $(_opts)
+
+ssh: ## Faqat ssh rol (AllowUsers — kim kira oladi)
+	$(PLAYBOOK) playbooks/ssh.yml $(_opts)
+
+# Molecule rol papkasidan ishga tushadi -> ildizdagi ansible.cfg topilmaydi.
+# Shuning uchun collections yo'lini aniq beramiz (./collections deterministik).
+test test-converge test-verify test-login test-destroy: export ANSIBLE_COLLECTIONS_PATH := $(CURDIR)/collections
+
+molecule-setup: ## Molecule + docker driver + community.docker o'rnatadi (test uchun, bir marta)
+	$(BIN)/pip install -q -r requirements-dev.txt
+	$(GALAXY) collection install -r requirements-dev.yml -p ./collections
+	@$(MOLECULE) --version | head -1
+
+test: ## Rolni molecule bilan to'liq test qiladi — ROLE=basic|zsh|ssh|users (Docker kerak)
+	cd roles/$(ROLE) && $(MOLECULE) test
+
+test-converge: ## Rolni konteynerga qo'llaydi, konteynerni TIRIK qoldiradi (debug). ROLE=...
+	cd roles/$(ROLE) && $(MOLECULE) converge
+
+test-verify: ## Faqat verify (tekshiruv) bosqichini qayta ishga tushiradi. ROLE=...
+	cd roles/$(ROLE) && $(MOLECULE) verify
+
+test-login: ## Tirik test konteyneriga kiradi (converge'dan keyin). ROLE=...
+	cd roles/$(ROLE) && $(MOLECULE) login
+
+test-destroy: ## Test konteynerlarini o'chiradi (tozalash). ROLE=...
+	cd roles/$(ROLE) && $(MOLECULE) destroy
 
 facts: ## Hostlardan ma'lumot (facts) yig'adi
 	$(ANSIBLE) all -m setup $(_limit)

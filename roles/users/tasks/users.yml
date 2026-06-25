@@ -1,15 +1,23 @@
 ---
-- name: Create primary group for each user
+# Har user `state` ga ega:
+#   present  (default) — yaratiladi/faollashtiriladi, kalit+sudo qo'llanadi
+#   disabled           — account lock + expire (login bloklanadi), home/data SAQLANADI
+#   absent             — user va home butunlay o'chiriladi
+#
+# Eslatma (source of truth): bu rol faqat ro'yxatdagi userlarni boshqaradi.
+# Kim SSH orqali kira olishi `ssh` roli (AllowUsers) bilan hal qilinadi.
+
+- name: Ensure primary group (present/disabled)
   ansible.builtin.group:
     name: "{{ item.name }}"
     state: present
   loop: "{{ users_users }}"
   loop_control:
     label: "{{ item.name }}"
-  when: item.state | default('present') == 'present'
+  when: (item.state | default('present')) in ['present', 'disabled']
   tags: [users]
 
-- name: Create users
+- name: Create / ensure users (present/disabled)
   ansible.builtin.user:
     name: "{{ item.name }}"
     group: "{{ item.name }}"
@@ -18,24 +26,49 @@
     shell: "{{ item.shell | default(users_default_shell) }}"
     create_home: "{{ item.create_home | default(users_create_home) }}"
     password: "{{ item.password | default(omit) }}"
-    state: "{{ item.state | default('present') }}"
+    state: present
   loop: "{{ users_users }}"
   loop_control:
     label: "{{ item.name }}"
+  when: (item.state | default('present')) in ['present', 'disabled']
   tags: [users]
 
-- name: Set up authorized SSH keys
+- name: Re-enable active users (remove account expiry)
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    expires: -1
+  loop: "{{ users_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: (item.state | default('present')) == 'present'
+  tags: [users]
+
+- name: Disable users (lock password + expire account, keep home)
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    password_lock: true
+    expires: 1
+  loop: "{{ users_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: (item.state | default('present')) == 'disabled'
+  tags: [users]
+
+- name: Set up authorized SSH keys (present only)
   ansible.posix.authorized_key:
     user: "{{ item.0.name }}"
-    key: "{{ item.1 }}"
+    key: "{{ lookup('file', users_ssh_keys_dir ~ '/' ~ item.1) }}"
     state: present
   loop: "{{ users_users | subelements('ssh_keys', skip_missing=True) }}"
   loop_control:
     label: "{{ item.0.name }}"
-  when: item.0.state | default('present') == 'present'
+  when:
+    - (item.0.state | default('present')) == 'present'
+    # Bo'sh kalit fayllarini o'tkazib yuboramiz (hali kalit qo'yilmagan placeholder)
+    - (lookup('file', users_ssh_keys_dir ~ '/' ~ item.1) | trim | length) > 0
   tags: [users]
 
-- name: Grant passwordless sudo
+- name: Grant passwordless sudo (present + sudo)
   ansible.builtin.copy:
     dest: "/etc/sudoers.d/{{ item.name }}"
     content: "{{ item.name }} ALL=(ALL) NOPASSWD:ALL\n"
@@ -48,15 +81,38 @@
     label: "{{ item.name }}"
   when:
     - item.sudo | default(false)
-    - item.state | default('present') == 'present'
+    - (item.state | default('present')) == 'present'
   tags: [users]
 
-- name: Remove sudoers file for non-sudo / absent users
+- name: Remove sudoers file (non-sudo / disabled / absent)
   ansible.builtin.file:
     path: "/etc/sudoers.d/{{ item.name }}"
     state: absent
   loop: "{{ users_users }}"
   loop_control:
     label: "{{ item.name }}"
-  when: not (item.sudo | default(false)) or item.state | default('present') == 'absent'
+  when: >-
+    not (item.sudo | default(false))
+    or (item.state | default('present')) != 'present'
+  tags: [users]
+
+- name: Remove users and their home (absent)
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    state: absent
+    remove: true
+  loop: "{{ users_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: (item.state | default('present')) == 'absent'
+  tags: [users]
+
+- name: Remove primary group (absent)
+  ansible.builtin.group:
+    name: "{{ item.name }}"
+    state: absent
+  loop: "{{ users_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: (item.state | default('present')) == 'absent'
   tags: [users]

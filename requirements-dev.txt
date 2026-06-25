@@ -1,0 +1,8 @@
+# Faqat LOKAL TEST uchun (molecule). Production/boshqaruvga aloqasi yo'q —
+# shuning uchun requirements.txt dan ajratilgan. O'rnatish: make molecule-setup
+#
+# Docker driver kerak (konteynerlarda rol test qilinadi). molecule 6.x
+# ansible-core 2.16 bilan mos.
+molecule>=6,<7
+molecule-plugins[docker]>=23,<24
+docker>=7

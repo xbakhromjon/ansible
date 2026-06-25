@@ -1,24 +1,73 @@
 ---
-# Server uchun yaratiladigan foydalanuvchilar.
+# Bu fayl — foydalanuvchilar uchun SOURCE OF TRUTH.
 # Har biri dict:
 #   name      (majburiy) — login nomi
 #   shell     — login shell (default: users_default_shell)
 #   groups    — qo'shimcha guruhlar (masalan [docker]); guruh mavjud bo'lishi kerak
 #   sudo      — true bo'lsa /etc/sudoers.d/<name> (passwordless sudo)
-#   ssh_keys  — authorized_keys ro'yxati
+#   ssh_keys  — public key FAYL nomlari ro'yxati. Har biri
+#               files/ssh_keys/<nom> faylidan o'qiladi (users_ssh_keys_dir).
 #   password  — shifrlangan parol hash (ixtiyoriy)
-#   state     — present (default) / absent
+#   state     — present (default) | disabled | absent
+#                 present  — yaratiladi/faollashtiriladi, SSH'ga ruxsat (AllowUsers)
+#                 disabled — account lock + expire, SSH yopiladi, home SAQLANADI
+#                 absent   — user va home butunlay o'chiriladi
+#
+# >>> MUHIM (lockout!):
+#   - Kim SSH orqali kira olishi `ssh` roli AllowUsers'ni AYNAN shu ro'yxatdagi
+#     `present` userlardan quradi (+ ansible_user doimo qo'shiladi).
+#   - Ro'yxatda YO'Q userlar SSH'dan tushib qoladi (account o'chmaydi, faqat kirish yopiladi).
+#   - Demak SAQLAMOQCHI bo'lgan HAMMA userni shu yerga `present` qilib yozing,
+#     aks holda ular kira olmay qoladi.
 #
 # Misol:
 # users_users:
 #   - name: deploy
-#     shell: /bin/bash
 #     sudo: true
 #     ssh_keys:
-#       - "ssh-ed25519 AAAA... deploy@laptop"
-#   - name: alice
-#     groups: [docker]
-#     ssh_keys:
-#       - "ssh-ed25519 AAAA... alice@laptop"
+#       - bahrom            # => files/ssh_keys/bahrom dan o'qiladi
+#   - name: alice            # eski user, faqat saqlash uchun (kalitsiz ham bo'ladi)
+#   - name: bob
+#     state: disabled        # ishdan ketdi — bloklanadi, ma'lumoti qoladi
 
-users_users: []
+users_users:
+  - name: ansible
+    sudo: true
+    ssh_keys:
+      - bahrom
+
+  - name: ahmad
+    sudo: true
+    ssh_keys:
+      - ahmad
+
+  - name: sardor.ergashev
+    sudo: true
+    ssh_keys:
+      - sardor.ergashev
+
+  - name: zokir
+    sudo: true
+    ssh_keys:
+      - zokir
+
+  - name: abbos
+    sudo: true
+    ssh_keys:
+      - abbos
+
+  - name: bahrom
+    sudo: true
+    ssh_keys:
+      - bahrom
+
+  - name: bahrom-2
+    sudo: true
+    state: present
+    ssh_keys:
+      - bahrom
+
+  - name: takhir
+    sudo: true
+    ssh_keys:
+      - takhir

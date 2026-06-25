@@ -1,0 +1,33 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  vars:
+    zsh_shell_path: /bin/zsh
+  tasks:
+    - name: zsh o'rnatilgan va ishga tushadi
+      ansible.builtin.command: zsh --version
+      changed_when: false
+
+    - name: zsh binar holatini tekshirish
+      ansible.builtin.stat:
+        path: "{{ zsh_shell_path }}"
+      register: zsh_bin
+
+    - name: zsh binar mavjud va bajariladigan ekanini tasdiqlash
+      ansible.builtin.assert:
+        that:
+          - zsh_bin.stat.exists
+          - zsh_bin.stat.executable | default(false)
+        fail_msg: "{{ zsh_shell_path }} yo'q yoki bajariladigan emas"
+
+    - name: /etc/shells mazmunini o'qish
+      ansible.builtin.slurp:
+        src: /etc/shells
+      register: etc_shells
+
+    - name: zsh yaroqli login shell sifatida /etc/shells da borligini tasdiqlash
+      ansible.builtin.assert:
+        that:
+          - zsh_shell_path in (etc_shells.content | b64decode)
+        fail_msg: "{{ zsh_shell_path }} /etc/shells da ro'yxatdan o'tmagan"

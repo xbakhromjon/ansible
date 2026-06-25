@@ -3,13 +3,17 @@
   hosts: all
   become: true
   vars:
+    # Kalit fayllari shu stsenariy ichida (playbook_dir = .../molecule/default).
+    users_ssh_keys_dir: "{{ playbook_dir }}/files/ssh_keys"
     users_users:
-      - name: deploy
-        shell: /bin/bash
+      - name: alice          # present + sudo + fayldan SSH kalit
         sudo: true
         ssh_keys:
-          - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMoleculeTestKeyDoNotUseInProduction deploy@molecule"
-      - name: appuser
-        sudo: false
+          - alice
+      - name: carol          # present, kalitsiz, sudosiz
+      - name: bob            # disabled — yaratiladi, so'ng lock + expire
+        state: disabled
+      - name: dave           # absent — prepare yaratgan, bu yerda o'chiriladi
+        state: absent
   roles:
     - role: users

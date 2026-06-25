@@ -3,6 +3,14 @@
 # group_vars/all/users.yml dagi izohga qarang.
 users_users: []
 
-# Yangi foydalanuvchilar uchun standart qiymatlar
-users_default_shell: /bin/bash
+# Yangi foydalanuvchilar uchun standart shell. /bin/zsh ni `zsh` roli
+# o'rnatadi va /etc/shells ga yozadi — shuning uchun bootstrap'da `zsh`
+# roli `users` dan OLDIN ishlashi kerak (binar mavjud bo'lishi uchun).
+# Bitta userga boshqa shell kerak bo'lsa, uning `shell:` maydonini bering.
+users_default_shell: /bin/zsh
 users_create_home: true
+
+# ssh_keys ro'yxatidagi har bir element shu papkadagi fayl nomi (public key).
+# Kalit matni o'sha fayldan o'qiladi. playbook_dir = .../ansible/playbooks
+# bo'lgani uchun loyiha ildizidagi files/ssh_keys ga ishora qilamiz.
+users_ssh_keys_dir: "{{ playbook_dir }}/../files/ssh_keys"

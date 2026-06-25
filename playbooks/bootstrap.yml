@@ -4,4 +4,6 @@
   become: true
   roles:
     - role: basic    # 1. timezone, asosiy paketlar
-#    - role: users    # 2. foydalanuvchilar
+    - role: zsh      # 2. zsh o'rnatish (users default shell = /bin/zsh)
+    - role: users    # 3. foydalanuvchilar (yaratish/disable, shell tayinlash)
+    - role: ssh      # 4. AllowUsers (users'ga tayanadi — kim kira oladi)

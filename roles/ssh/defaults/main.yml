@@ -1,0 +1,22 @@
+---
+# AllowUsers'ni boshqarish (source of truth). false bo'lsa sshd_config tegilmaydi.
+ssh_manage_allow_users: true
+
+# users.yml dagi faol userlardan tashqari, AllowUsers'ga qo'shimcha ruxsat
+# beriladigan login nomlari (masalan servis akkauntlar).
+ssh_allow_users_extra: []
+
+# --- sshd hardening ---
+# false bo'lsa quyidagi direktivalar umuman qo'llanmaydi.
+ssh_manage_hardening: true
+
+# sshd_config direktivalari (kalit: qiymat). Asosiy sshd_config faylga, va
+# (agar tizim Include /etc/ssh/sshd_config.d/*.conf ishlatsa) 00-ansible-hardening
+# drop-in fayliga yoziladi. Drop-in 00- prefiks bilan leksik tartibda BIRINCHI
+# o'qiladi — sshd "birinchi qiymat g'olib" qoidasi bo'yicha cloud-init (50-...)
+# ning PasswordAuthentication yes'idan ustun turadi.
+#
+# >>> LOCKOUT: PasswordAuthentication "no" qilinsa, ansible_user'da
+#     authorized_keys bo'lishi SHART — aks holda playbook to'xtaydi (guard).
+ssh_hardening_directives:
+  PasswordAuthentication: "no"

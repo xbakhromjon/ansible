@@ -1,0 +1,6 @@
+---
+- name: Apply ssh role
+  hosts: all
+  become: true
+  roles:
+    - role: ssh

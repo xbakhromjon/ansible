@@ -1,0 +1,19 @@
+---
+# Test konteynerlarini tayyorlash (converge'dan oldin molecule avtomatik ishga
+# tushiradi). FAQAT test muhiti uchun — basic roliga aloqasi yo'q.
+#
+# Nega kerak: minimal Docker imijida systemd/timedatectl ishlamaydi, shuning
+# uchun community.general.timezone "systemd-siz" yo'lga tushadi va `hwclock`
+# binarini talab qiladi. Ubuntu 24.04 hwclock'ni util-linux-extra ga ko'chirgan
+# va u minimal imijda yo'q. Haqiqiy VM'larda (ubuntu-18, centos-8) hwclock bor.
+- name: Prepare
+  hosts: all
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Ensure hwclock is available (Debian — util-linux-extra)
+      ansible.builtin.apt:
+        name: util-linux-extra
+        state: present
+        update_cache: true
+      when: ansible_os_family == "Debian"

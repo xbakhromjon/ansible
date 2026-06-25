@@ -1,0 +1,9 @@
+---
+# zsh ikkilik fayli yo'li — /etc/shells ga yoziladi va users roli buni
+# login shell sifatida ishlatadi (users_default_shell). /bin/zsh butun
+# fleet'da ishlaydi: Ubuntu 18.04 (real fayl) hamda usrmerge'li
+# Ubuntu jammy/noble va EL8/9/10 (/bin -> /usr/bin) da ham yaroqli.
+zsh_shell_path: /bin/zsh
+
+# Foydalanuvchi qo'shadigan qo'shimcha zsh paketlari (masalan zsh-autosuggestions).
+zsh_extra_packages: []

@@ -1,0 +1,27 @@
+---
+# Test konteynerlarini tayyorlash (converge'dan oldin avtomatik ishlaydi).
+# FAQAT test muhiti uchun.
+- name: Prepare
+  hosts: all
+  become: true
+  gather_facts: true
+  tasks:
+    # users default shell = /bin/zsh. Prod'da `zsh` roli `users` dan oldin
+    # ishlab uni o'rnatadi — bu yerda shu sharoitni takrorlaymiz.
+    - name: Update apt cache (Debian)
+      ansible.builtin.apt:
+        update_cache: true
+      when: ansible_os_family == "Debian"
+
+    - name: Install zsh (users default shell uchun)
+      ansible.builtin.package:
+        name: zsh
+        state: present
+
+    # 'absent' holatini sinash uchun oldindan mavjud user yaratamiz —
+    # converge uni o'chirishi kerak.
+    - name: Create a leftover user to later remove (absent test)
+      ansible.builtin.user:
+        name: dave
+        state: present
+        create_home: true
