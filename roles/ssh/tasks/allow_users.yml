@@ -4,6 +4,7 @@
 #            + ssh_allow_users_extra (qo'lda qo'shimcha)
 #            + host-level ssh_extra_allow_users (inventory'dan)
 
+# Bu yerda faqat RO'YXAT quriladi; yozish dropin.yml da (drop-in template).
 - name: Build AllowUsers list from users.yml (active users + ansible_user)
   ansible.builtin.set_fact:
     ssh_allow_users_final: >-
@@ -26,15 +27,4 @@
       - ansible_user in ssh_allow_users_final
     fail_msg: >-
       AllowUsers bo'sh yoki ansible_user ({{ ansible_user }}) yo'q — lockout xavfi, to'xtatildi.
-  tags: [ssh, ssh_allow_users]
-
-- name: Set AllowUsers in sshd_config (validated)
-  ansible.builtin.lineinfile:
-    path: "{{ ssh_sshd_config }}"
-    regexp: '^\s*#?\s*AllowUsers\b.*$'
-    line: "AllowUsers {{ ssh_allow_users_final | join(' ') }}"
-    state: present
-    validate: "{{ ssh_validate_cmd }}"
-  when: ssh_manage_allow_users | bool
-  notify: reload sshd
   tags: [ssh, ssh_allow_users]

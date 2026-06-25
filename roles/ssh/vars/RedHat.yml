@@ -1,4 +1,5 @@
 ---
 ssh_sshd_config: /etc/ssh/sshd_config
+ssh_sshd_bin: /usr/sbin/sshd
 ssh_service_name: sshd
 ssh_validate_cmd: "/usr/sbin/sshd -t -f %s"

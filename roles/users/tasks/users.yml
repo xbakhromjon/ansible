@@ -1,11 +1,24 @@
 ---
 # Har user `state` ga ega:
 #   present  (default) — yaratiladi/faollashtiriladi, kalit+sudo qo'llanadi
-#   disabled           — account lock + expire (login bloklanadi), home/data SAQLANADI
-#   absent             — user va home butunlay o'chiriladi
+#   disabled           — account lock + expire (login bloklanadi), AKKAUNT QOLADI
+#   absent             — akkaunt o'chiriladi (safe delete), home/data SAQLANADI
 #
 # Eslatma (source of truth): bu rol faqat ro'yxatdagi userlarni boshqaradi.
 # Kim SSH orqali kira olishi `ssh` roli (AllowUsers) bilan hal qilinadi.
+
+# Userlar YARATILISHIDAN OLDIN mavjudlarini suratga olamiz. Shunda keyin
+# "yangi yaratilgan" (parol olgan) userlarni aniqlab, ularni birinchi loginда
+# parol almashtirishga majbur qila olamiz (chage -d 0) — idempotent.
+- name: Snapshot existing users before creation
+  ansible.builtin.getent:
+    database: passwd
+  tags: [ users ]
+
+- name: Record pre-existing usernames
+  ansible.builtin.set_fact:
+    users_preexisting: "{{ ansible_facts.getent_passwd.keys() | list }}"
+  tags: [ users ]
 
 - name: Ensure primary group (present/disabled)
   ansible.builtin.group:
@@ -15,7 +28,7 @@
   loop_control:
     label: "{{ item.name }}"
   when: (item.state | default('present')) in ['present', 'disabled']
-  tags: [users]
+  tags: [ users ]
 
 - name: Create / ensure users (present/disabled)
   ansible.builtin.user:
@@ -25,13 +38,70 @@
     append: true
     shell: "{{ item.shell | default(users_default_shell) }}"
     create_home: "{{ item.create_home | default(users_create_home) }}"
-    password: "{{ item.password | default(omit) }}"
+    # Parol vault'dan (users_passwords[name], plaintext) -> sha512 hash.
+    # Salt user nomidan (stabil -> idempotent). update_password: on_create —
+    # parol FAQAT yaratilishda qo'yiladi; mavjud user paroli tegilmaydi
+    # (user keyin o'zi o'zgartira oladi).
+    password: >-
+      {{ (users_passwords[item.name] | password_hash('sha512', (item.name | hash('md5'))[:16]))
+         if (item.name in (users_passwords | default({})) and users_passwords[item.name] | length > 0)
+         else omit }}
+    update_password: on_create
     state: present
   loop: "{{ users_users }}"
   loop_control:
     label: "{{ item.name }}"
   when: (item.state | default('present')) in ['present', 'disabled']
-  tags: [users]
+  tags: [ users ]
+
+# useradd mavjud home katalogini QAYTA egalamaydi (faqat yaratilishda). Agar user
+# o'chirilib boshqa UID bilan qayta yaratilgan bo'lsa, home (va ayniqsa .ssh /
+# authorized_keys) eski yetim UID'da qoladi -> sshd StrictModes kalitni rad etadi,
+# user home'iga yoza olmaydi. RECURSIVE chown bilan butun home'ni userga beramiz.
+- name: Ensure home directory is owned by the user (recursive — fixes stale UID after recreate)
+  ansible.builtin.file:
+    path: "/home/{{ item.name }}"
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    state: directory
+    recurse: true
+  loop: "{{ users_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - (item.state | default('present')) in ['present', 'disabled']
+    - item.create_home | default(users_create_home)
+  tags: [ users ]
+
+# CentOS/SELinux: tiklangan home'dagi .ssh/authorized_keys konteksti noto'g'ri
+# bo'lishi mumkin (ssh_home_t emas) -> sshd o'qiy olmaydi. restorecon to'g'rilaydi.
+- name: Restore SELinux context on home (RedHat/SELinux — fixes authorized_keys label)
+  ansible.builtin.command: "restorecon -R -F /home/{{ item.name }}"
+  loop: "{{ users_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - (item.state | default('present')) in ['present', 'disabled']
+    - item.create_home | default(users_create_home)
+    - ansible_facts.selinux.status | default('disabled') == 'enabled'
+  changed_when: false
+  tags: [ users ]
+
+# Faqat YANGI yaratilgan + parol olgan userlar: birinchi loginда parolni
+# almashtirishga majbur qilamiz. users_preexisting'da bo'lganlar (eski) va
+# parolsizlar o'tkazib yuboriladi -> idempotent (har run takror majburlamaydi).
+- name: Force password change on first login (newly created users with a password)
+  ansible.builtin.command: "chage -d 0 {{ item.name }}"
+  loop: "{{ users_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - users_force_password_change | default(true)
+    - (item.state | default('present')) == 'present'
+    - item.name in (users_passwords | default({}))
+    - item.name not in users_preexisting
+  changed_when: true
+  tags: [ users ]
 
 - name: Re-enable active users (remove account expiry)
   ansible.builtin.user:
@@ -41,7 +111,7 @@
   loop_control:
     label: "{{ item.name }}"
   when: (item.state | default('present')) == 'present'
-  tags: [users]
+  tags: [ users ]
 
 - name: Disable users (lock password + expire account, keep home)
   ansible.builtin.user:
@@ -52,7 +122,7 @@
   loop_control:
     label: "{{ item.name }}"
   when: (item.state | default('present')) == 'disabled'
-  tags: [users]
+  tags: [ users ]
 
 - name: Set up authorized SSH keys (present only)
   ansible.posix.authorized_key:
@@ -66,7 +136,7 @@
     - (item.0.state | default('present')) == 'present'
     # Bo'sh kalit fayllarini o'tkazib yuboramiz (hali kalit qo'yilmagan placeholder)
     - (lookup('file', users_ssh_keys_dir ~ '/' ~ item.1) | trim | length) > 0
-  tags: [users]
+  tags: [ users ]
 
 - name: Grant passwordless sudo (present + sudo)
   ansible.builtin.copy:
@@ -82,7 +152,7 @@
   when:
     - item.sudo | default(false)
     - (item.state | default('present')) == 'present'
-  tags: [users]
+  tags: [ users ]
 
 - name: Remove sudoers file (non-sudo / disabled / absent)
   ansible.builtin.file:
@@ -94,18 +164,21 @@
   when: >-
     not (item.sudo | default(false))
     or (item.state | default('present')) != 'present'
-  tags: [users]
+  tags: [ users ]
 
-- name: Remove users and their home (absent)
+# SAFE DELETE: akkaunt o'chiriladi (login imkonsiz), lekin home/data SAQLANADI
+# (userdel, -r emas). Home eski UID/GID egaligida qoladi — tiklash kerak bo'lsa
+# userni qayta yarating, "Ensure home directory ownership" taski egalikni tuzatadi.
+- name: Remove user account, keep home (absent — safe delete)
   ansible.builtin.user:
     name: "{{ item.name }}"
     state: absent
-    remove: true
+    remove: false
   loop: "{{ users_users }}"
   loop_control:
     label: "{{ item.name }}"
   when: (item.state | default('present')) == 'absent'
-  tags: [users]
+  tags: [ users ]
 
 - name: Remove primary group (absent)
   ansible.builtin.group:
@@ -115,4 +188,18 @@
   loop_control:
     label: "{{ item.name }}"
   when: (item.state | default('present')) == 'absent'
-  tags: [users]
+  tags: [ users ]
+
+# Per-user zsh muhiti — user yaratilgandan KEYIN (shu rolda) sozlanadi, shuning
+# uchun user mavjud bo'ladi. Faqat present + shell'i zsh bo'lgan userlar uchun.
+- name: Configure zsh dotfiles for present users (Oh My Zsh, plugins, theme)
+  ansible.builtin.include_tasks: zsh_user.yml
+  loop: "{{ users_users }}"
+  loop_control:
+    loop_var: zuser
+    label: "{{ zuser.name }}"
+  when:
+    - users_zsh_setup | default(true)
+    - (zuser.state | default('present')) == 'present'
+    - (zuser.shell | default(users_default_shell)) is search('zsh')
+  tags: [ users, users_zsh ]

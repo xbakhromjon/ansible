@@ -11,7 +11,7 @@
 #   state     — present (default) | disabled | absent
 #                 present  — yaratiladi/faollashtiriladi, SSH'ga ruxsat (AllowUsers)
 #                 disabled — account lock + expire, SSH yopiladi, home SAQLANADI
-#                 absent   — user va home butunlay o'chiriladi
+#                 absent   — akkaunt o'chiriladi (safe delete), home/data SAQLANADI
 #
 # >>> MUHIM (lockout!):
 #   - Kim SSH orqali kira olishi `ssh` roli AllowUsers'ni AYNAN shu ro'yxatdagi
@@ -71,3 +71,13 @@ users_users:
     sudo: true
     ssh_keys:
       - takhir
+
+# --- Parollar (vault'dan) ---
+# Dastlabki parollar group_vars/all/vault.yml (shifrlangan) da
+# vault_user_passwords map sifatida. Bu yer faqat indirection — shunda
+# tasklar vault'siz nom (users_passwords) bilan ishlaydi va qaysi var maxfiy
+# ekani aniq (vault_ prefiksi). Parol faqat user YARATILGANDA qo'yiladi.
+users_passwords: "{{ vault_user_passwords | default({}) }}"
+
+users_prune_unmanaged: true
+users_prune_keep: []

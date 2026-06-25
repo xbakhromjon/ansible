@@ -1,9 +1,12 @@
 ---
-# zsh ikkilik fayli yo'li — /etc/shells ga yoziladi va users roli buni
-# login shell sifatida ishlatadi (users_default_shell). /bin/zsh butun
-# fleet'da ishlaydi: Ubuntu 18.04 (real fayl) hamda usrmerge'li
-# Ubuntu jammy/noble va EL8/9/10 (/bin -> /usr/bin) da ham yaroqli.
+# zsh ikkilik fayli yo'li — /etc/shells ga yoziladi, tizim default shell sifatida
+# va users roli login shell sifatida ishlatadi. /bin/zsh butun fleet'da yaroqli.
 zsh_shell_path: /bin/zsh
 
-# Foydalanuvchi qo'shadigan qo'shimcha zsh paketlari (masalan zsh-autosuggestions).
+# Foydalanuvchi qo'shadigan qo'shimcha zsh paketlari.
 zsh_extra_packages: []
+
+# true bo'lsa tizim default shell'i zsh qilinadi (/etc/default/useradd va
+# Debian'da /etc/adduser.conf) — useradd/adduser bilan yaratilgan yangi userlar
+# avtomatik zsh oladi. false bo'lsa faqat Ansible-managed userlar zsh oladi.
+zsh_set_system_default: true

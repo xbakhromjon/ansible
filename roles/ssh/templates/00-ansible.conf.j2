@@ -1,0 +1,14 @@
+# ANSIBLE BOSHQARADI — ssh roli. Qo'lda tahrirlamang.
+# Barcha sshd o'zgarishlari shu drop-in'da (asosiy sshd_config daxlsiz).
+{% if ssh_manage_allow_users | bool %}
+
+# Kim SSH'ga kira oladi: users.yml present userlar + ansible_user + extra.
+AllowUsers {{ ssh_allow_users_final | join(' ') }}
+{% endif %}
+{% if ssh_manage_hardening | bool %}
+
+# Hardening direktivalari (ssh_hardening_directives).
+{% for key, value in ssh_hardening_directives.items() %}
+{{ key }} {{ value }}
+{% endfor %}
+{% endif %}

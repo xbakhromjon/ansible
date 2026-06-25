@@ -3,3 +3,7 @@
 # 2.17+ managed-node uchun Python 3.7+ talab qiladi va apt/dnf modullari
 # eski hostlarda python-apt/dnf bindinglari sabab python3.6 ga respawn qilib yiqiladi.
 ansible-core>=2.16,<2.17
+
+# password_hash('sha512') filtri controller'da ishlaydi. macOS'da crypt.crypt
+# sha512'ni qo'llamaydi, shuning uchun passlib kerak (users role parol hash uchun).
+passlib>=1.7

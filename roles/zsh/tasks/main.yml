@@ -1,8 +1,16 @@
 ---
+# zsh roli: zsh'ni o'rnatadi, /etc/shells ga yozadi va TIZIM default shell'ini
+# zsh qiladi (yangi userlar avtomatik zsh oladi). Per-user sozlash (Oh My Zsh,
+# plugin, theme) `users` rolida — chunki userlar o'sha yerda yaratiladi.
 - name: Include OS-specific variables
   ansible.builtin.include_vars: "{{ ansible_os_family }}.yml"
   tags: [zsh]
 
 - name: Install zsh and register login shell
   ansible.builtin.include_tasks: install.yml
+  tags: [zsh]
+
+- name: Set zsh as the system default shell for new users
+  ansible.builtin.include_tasks: default_shell.yml
+  when: zsh_set_system_default | bool
   tags: [zsh]

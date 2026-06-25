@@ -1,0 +1,52 @@
+---
+# BARCHA sshd o'zgarishlari shu yerda — bitta drop-in fayl (template).
+# Asosiy sshd_config faqat Include qatori uchun (bir martalik) tegiladi.
+
+- name: Ensure sshd_config.d directory exists
+  ansible.builtin.file:
+    path: "{{ ssh_config_d }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  tags: [ssh]
+
+- name: Write Ansible-managed sshd drop-in (AllowUsers + hardening)
+  ansible.builtin.template:
+    src: 00-ansible.conf.j2
+    dest: "{{ ssh_dropin_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+    validate: "{{ ssh_validate_cmd }}"
+  notify: reload sshd
+  tags: [ssh]
+
+# Drop-in g'olib bo'lishi uchun Include faylning BOSHIDA bo'lishi kerak
+# ("birinchi qiymat g'olib"). Modern tizimlarda allaqachon bor (regexp mos
+# kelib, o'rnida qoladi); Ubuntu 18.04'da yo'q -> boshiga qo'shiladi.
+- name: Ensure sshd_config Includes the drop-in dir (at top of file)
+  ansible.builtin.lineinfile:
+    path: "{{ ssh_sshd_config }}"
+    line: "Include {{ ssh_config_d }}/*.conf"
+    regexp: '^\s*Include\s+{{ ssh_config_d | regex_escape }}/\*\.conf\s*$'
+    insertbefore: BOF
+    firstmatch: true
+    state: present
+    validate: "{{ ssh_validate_cmd }}"
+  notify: reload sshd
+  tags: [ssh]
+
+# AllowUsers RO'YXAT direktivasi — bir nechta qator QO'SHILADI (union), "birinchi
+# g'olib" emas. Shuning uchun asosiy fayldagi eski AllowUsers drop-in'niki bilan
+# birlashib qolmasligi uchun uni o'chiramiz (skalar hardening direktivalari uchun
+# bu shart emas — ular birinchi g'olib bo'lib, drop-in ustun turadi).
+- name: Remove AllowUsers from main sshd_config (additive — would union with drop-in)
+  ansible.builtin.lineinfile:
+    path: "{{ ssh_sshd_config }}"
+    regexp: '^\s*AllowUsers\b'
+    state: absent
+    validate: "{{ ssh_validate_cmd }}"
+  when: ssh_manage_allow_users | bool
+  notify: reload sshd
+  tags: [ssh, ssh_allow_users]

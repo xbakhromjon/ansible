@@ -1,0 +1,21 @@
+---
+# Tizim default login shell'ini zsh qilamiz — useradd/adduser bilan yaratiladigan
+# HAR QANDAY yangi user (Ansible'siz, qo'lda ham) avtomatik zsh oladi.
+
+- name: Set default login shell for useradd (/etc/default/useradd)
+  ansible.builtin.lineinfile:
+    path: /etc/default/useradd
+    regexp: '^\s*#?\s*SHELL\s*='
+    line: "SHELL={{ zsh_shell_path }}"
+    state: present
+  tags: [zsh]
+
+# Debian/Ubuntu `adduser` alohida config ishlatadi (RedHat'da yo'q).
+- name: Set default shell for adduser (Debian /etc/adduser.conf)
+  ansible.builtin.lineinfile:
+    path: /etc/adduser.conf
+    regexp: '^\s*#?\s*DSHELL\s*='
+    line: "DSHELL={{ zsh_shell_path }}"
+    state: present
+  when: ansible_os_family == "Debian"
+  tags: [zsh]

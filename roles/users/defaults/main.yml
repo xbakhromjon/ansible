@@ -1,7 +1,7 @@
 ---
 # Yaratiladigan foydalanuvchilar ro'yxati (dict). Struktura uchun
 # group_vars/all/users.yml dagi izohga qarang.
-users_users: []
+users_users: [ ]
 
 # Yangi foydalanuvchilar uchun standart shell. /bin/zsh ni `zsh` roli
 # o'rnatadi va /etc/shells ga yozadi — shuning uchun bootstrap'da `zsh`
@@ -10,7 +10,58 @@ users_users: []
 users_default_shell: /bin/zsh
 users_create_home: true
 
+# Yangi userlarning dastlabki paroli (plaintext, vault'dan keladi). Map:
+# { login_nomi: plaintext_parol }. group_vars/all/users.yml da
+# vault_user_passwords (shifrlangan) dan to'ldiriladi. Bo'sh => parolsiz.
+users_passwords: { }
+
+# true bo'lsa: dastlabki parol olgan yangi user birinchi loginда parolni
+# almashtirishga majbur bo'ladi (chage -d 0). Faqat yaratilishda — bir marta.
+users_force_password_change: false
+
+# --- UNMANAGED userlarni tozalash (XAVFLI) ---
+# true bo'lsa: users_users da YO'Q inson userlar safe-delete qilinadi (akkaunt
+# o'chadi, home QOLADI). Ya'ni users_users — yagona haqiqat (whitelist).
+# >>> YOQISHDAN OLDIN: users_users TO'LIQ ekaniga ishonch hosil qiling va
+#     ALBATTA avval --check bilan ishlating (preview ko'rsatiladi).
+# Himoya: faqat UID oralig'idagi (inson) userlar; tizim akkauntlari,
+# ansible_user va users_prune_keep HECH QACHON o'chirilmaydi.
+users_prune_unmanaged: false
+
+# "Inson user" UID oralig'i (login.defs: odatda 1000..60000). Bundan tashqaridagi
+# (tizim) akkauntlar prune'ga tushmaydi.
+users_human_uid_min: 1000
+users_human_uid_max: 60000
+
+# Prune'dan DOIM himoyalanadigan loginlar (break-glass akkaunt va h.k.).
+# ansible_user avtomatik himoyalangan — bu yerga yozish shart emas.
+users_prune_keep: []
+
 # ssh_keys ro'yxatidagi har bir element shu papkadagi fayl nomi (public key).
 # Kalit matni o'sha fayldan o'qiladi. playbook_dir = .../ansible/playbooks
 # bo'lgani uchun loyiha ildizidagi files/ssh_keys ga ishora qilamiz.
 users_ssh_keys_dir: "{{ playbook_dir }}/../files/ssh_keys"
+
+# --- Per-user zsh muhiti (Oh My Zsh + plugin + theme) ---
+# User yaratilgandan KEYIN uning zsh dotfiles'ini sozlaydi (present + zsh shell).
+# Bu shu yerda, chunki userlar aynan users rolida yaratiladi.
+# Targetda `curl` va `git` bo'lishi kerak (basic roli o'rnatadi). Binar mavjud
+# bo'lishi uchun `zsh` roli `users` dan oldin ishlasin. false => faqat shell.
+users_zsh_setup: true
+
+# ~/.zshrc dagi ZSH_THEME.
+users_zsh_theme: "dieter"
+
+# plugins=(...) — Oh My Zsh built-in (git) + tashqi. Tartib muhim:
+# zsh-syntax-highlighting OXIRIDA bo'lishi kerak.
+users_zsh_plugins:
+  - git
+  - zsh-autosuggestions
+  - zsh-syntax-highlighting
+
+# Git'dan klonlanadigan TASHQI pluginlar (built-in'lar bu yerda emas).
+users_zsh_external_plugins:
+  - name: zsh-autosuggestions
+    repo: https://github.com/zsh-users/zsh-autosuggestions.git
+  - name: zsh-syntax-highlighting
+    repo: https://github.com/zsh-users/zsh-syntax-highlighting.git

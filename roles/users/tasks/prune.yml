@@ -1,0 +1,52 @@
+---
+# XAVFLI: users_users da YO'Q inson userlarni safe-delete qiladi (akkaunt o'chadi,
+# home QOLADI). Faqat users_prune_unmanaged: true bo'lganda chaqiriladi.
+#
+# Ko'p qatlamli himoya — quyidagilar HECH QACHON o'chirilmaydi:
+#   - UID oralig'idan tashqari (tizim akkauntlari: root, daemon, sshd, postgres...)
+#   - ansible_user (biz ulanadigan akkaunt — lockout himoyasi)
+#   - users_users dagi barcha (boshqariladigan) userlar
+#   - users_prune_keep ro'yxatidagilar
+# Birinchi marta ALBATTA --check bilan ishlating (preview taski ro'yxatni ko'rsatadi).
+
+- name: Prune — snapshot all users on the host
+  ansible.builtin.getent:
+    database: passwd
+  tags: [users, users_prune]
+
+- name: Prune — index host users by integer uid
+  ansible.builtin.set_fact:
+    _host_uids: "{{ _host_uids | default({}) | combine({item.key: item.value[1] | int}) }}"
+  loop: "{{ ansible_facts.getent_passwd | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  tags: [users, users_prune]
+
+- name: Prune — compute unmanaged human users
+  ansible.builtin.set_fact:
+    users_unmanaged: >-
+      {{ _host_uids | dict2items
+         | selectattr('value', 'ge', users_human_uid_min | int)
+         | selectattr('value', 'le', users_human_uid_max | int)
+         | map(attribute='key') | list
+         | difference(users_users | map(attribute='name') | list)
+         | difference([ansible_user])
+         | difference(users_prune_keep | default([])) }}
+  tags: [users, users_prune]
+
+- name: Prune — preview (these accounts will be safe-deleted; home kept)
+  ansible.builtin.debug:
+    msg: >-
+      Safe-delete (akkaunt o'chadi, home qoladi):
+      {{ users_unmanaged | default([]) }}
+  tags: [users, users_prune]
+
+- name: Prune — safe-delete unmanaged human users (account removed, home kept)
+  ansible.builtin.user:
+    name: "{{ item }}"
+    state: absent
+    remove: false
+  loop: "{{ users_unmanaged | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+  tags: [users, users_prune]

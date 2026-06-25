@@ -56,17 +56,14 @@ syntax: ## Playbook sintaksisini tekshiradi (serverga ulanmaydi)
 check: ## Bootstrap'ni quruq ishga tushiradi (--check --diff, hech narsa o'zgartirmaydi)
 	$(PLAYBOOK) playbooks/bootstrap.yml --check --diff $(_opts)
 
-bootstrap: ## To'liq bootstrap (basic + users)
-	$(PLAYBOOK) playbooks/bootstrap.yml $(_opts)
-
-basic: ## Faqat basic rol (timezone + asosiy paketlar)
-	$(PLAYBOOK) playbooks/basic.yml $(_opts)
-
 users: ## Faqat users rol (foydalanuvchilar yaratish/disable)
 	$(PLAYBOOK) playbooks/users.yml $(_opts)
 
-ssh: ## Faqat ssh rol (AllowUsers — kim kira oladi)
-	$(PLAYBOOK) playbooks/ssh.yml $(_opts)
+vault-edit: ## Shifrlangan parol faylini tahrirlaydi (group_vars/all/vault.yml)
+	$(BIN)/ansible-vault edit group_vars/all/vault.yml
+
+vault-view: ## Shifrlangan parol faylini ko'radi (o'zgartirmasdan)
+	$(BIN)/ansible-vault view group_vars/all/vault.yml
 
 # Molecule rol papkasidan ishga tushadi -> ildizdagi ansible.cfg topilmaydi.
 # Shuning uchun collections yo'lini aniq beramiz (./collections deterministik).

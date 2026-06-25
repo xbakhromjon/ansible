@@ -1,0 +1,30 @@
+---
+# Eski sshd (Ubuntu 18.04, OpenSSH < 8.2, backport'siz) `Include` ni
+# qo'llamaydi — drop-in ishlamaydi. Shuning uchun to'g'ridan-to'g'ri asosiy
+# sshd_config'ga yozamiz (eski usul). lineinfile bitta qatorni ALMASHTIRADI,
+# shuning uchun AllowUsers union muammosi bu yerda yo'q.
+
+- name: Set AllowUsers in main sshd_config (no Include support)
+  ansible.builtin.lineinfile:
+    path: "{{ ssh_sshd_config }}"
+    regexp: '^\s*#?\s*AllowUsers\b.*$'
+    line: "AllowUsers {{ ssh_allow_users_final | join(' ') }}"
+    state: present
+    validate: "{{ ssh_validate_cmd }}"
+  when: ssh_manage_allow_users | bool
+  notify: reload sshd
+  tags: [ssh, ssh_allow_users]
+
+- name: Set hardening directives in main sshd_config (no Include support)
+  ansible.builtin.lineinfile:
+    path: "{{ ssh_sshd_config }}"
+    regexp: '^\s*#?\s*{{ item.key }}\b'
+    line: "{{ item.key }} {{ item.value }}"
+    state: present
+    validate: "{{ ssh_validate_cmd }}"
+  loop: "{{ ssh_hardening_directives | dict2items }}"
+  loop_control:
+    label: "{{ item.key }} {{ item.value }}"
+  when: ssh_manage_hardening | bool
+  notify: reload sshd
+  tags: [ssh, ssh_hardening]

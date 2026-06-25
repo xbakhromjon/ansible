@@ -1,13 +1,36 @@
 ---
+# ssh roli sshd o'zgarishlarini ikki yo'l bilan qo'llaydi (sshd qobiliyatiga qarab):
+#   Include qo'llasa (centos-8, modern)  -> /etc/ssh/sshd_config.d/00-ansible.conf
+#   Qo'llamasa (ubuntu-18, OpenSSH 7.6)  -> to'g'ridan-to'g'ri sshd_config
 - name: Include OS-specific variables
   ansible.builtin.include_vars: "{{ ansible_os_family }}.yml"
+  tags: [ssh, ssh_allow_users, ssh_hardening]
+
+# AllowUsers ro'yxatini quradi + lockout guard (bo'sh emas, ansible_user bor).
+- name: Build AllowUsers list
+  ansible.builtin.import_tasks: allow_users.yml
+  when: ssh_manage_allow_users | bool
   tags: [ssh, ssh_allow_users]
 
-- name: Manage sshd AllowUsers
-  ansible.builtin.include_tasks: allow_users.yml
-  tags: [ssh, ssh_allow_users]
-
-- name: Harden sshd (PasswordAuthentication, ...)
-  ansible.builtin.include_tasks: hardening.yml
+# Parol o'chirilayotgan bo'lsa, ansible_user'da kalit borligini tekshiradi.
+- name: Hardening lockout guard
+  ansible.builtin.import_tasks: hardening.yml
   when: ssh_manage_hardening | bool
   tags: [ssh, ssh_hardening]
+
+# sshd Include direktivasini qo'llaydimi -> ssh_supports_include.
+- name: Detect sshd Include support
+  ansible.builtin.import_tasks: detect.yml
+  tags: [ssh]
+
+# Yo'l A: Include qo'llanadi -> drop-in fayl.
+- name: Apply via drop-in (Include supported)
+  ansible.builtin.import_tasks: dropin.yml
+  when: ssh_supports_include | bool
+  tags: [ssh]
+
+# Yo'l B: Include yo'q -> asosiy sshd_config.
+- name: Apply via main sshd_config (no Include support)
+  ansible.builtin.import_tasks: mainconfig.yml
+  when: not (ssh_supports_include | bool)
+  tags: [ssh]

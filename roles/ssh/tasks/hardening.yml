@@ -1,12 +1,7 @@
 ---
-# sshd hardening — ssh_hardening_directives dagi kalit:qiymatlarni qo'llaydi.
-#
-# Ikki joyga yoziladi:
-#   1. Asosiy sshd_config (eski tizimlar, masalan Ubuntu 18.04 — Include yo'q).
-#   2. /etc/ssh/sshd_config.d/00-ansible-hardening.conf (modern tizimlar) —
-#      cloud-init (50-...) dan ustun turishi uchun 00- prefiks.
-# sshd "birinchi qiymat g'olib" qoidasi: drop-in birinchi o'qilgani uchun g'olib;
-# Include bo'lmagan tizimda esa asosiy fayldagi qator ishlaydi.
+# sshd hardening LOCKOUT GUARD — direktivalar dropin.yml da (template) yoziladi.
+# Bu fayl faqat: parol o'chirilayotgan bo'lsa, ansible_user kalitisiz qolib
+# ketmasligini tekshiradi (aks holda playbook to'xtaydi).
 
 - name: Hardening — parol-auth o'chirilyaptimi (lockout tekshiruvi uchun)
   ansible.builtin.set_fact:
@@ -43,45 +38,4 @@
       (users roli orqali), keyin qayta urinib ko'ring. Yoki vaqtincha
       ssh_hardening_directives.PasswordAuthentication ni "yes" qiling.
   when: ssh_disabling_password | bool
-  tags: [ssh, ssh_hardening]
-
-# --- ASOSIY sshd_config ----------------------------------------------------
-- name: Hardening — direktivalarni asosiy sshd_config ga yozish
-  ansible.builtin.lineinfile:
-    path: "{{ ssh_sshd_config }}"
-    regexp: '^\s*#?\s*{{ item.key }}\b'
-    line: "{{ item.key }} {{ item.value }}"
-    state: present
-    validate: "{{ ssh_validate_cmd }}"
-  loop: "{{ ssh_hardening_directives | dict2items }}"
-  loop_control:
-    label: "{{ item.key }} {{ item.value }}"
-  notify: reload sshd
-  tags: [ssh, ssh_hardening]
-
-# --- DROP-IN (modern tizimlar) ---------------------------------------------
-- name: Hardening — sshd_config.d include qo'llab-quvvatlanadimi?
-  ansible.builtin.shell:
-    cmd: >-
-      grep -Eq '^[[:space:]]*Include[[:space:]]+/etc/ssh/sshd_config\.d/\*\.conf'
-      {{ ssh_sshd_config }} && test -d /etc/ssh/sshd_config.d
-  register: ssh_dropin
-  changed_when: false
-  failed_when: false
-  tags: [ssh, ssh_hardening]
-
-- name: Hardening — drop-in fayl (cloud-init'dan ustun)
-  ansible.builtin.copy:
-    dest: /etc/ssh/sshd_config.d/00-ansible-hardening.conf
-    owner: root
-    group: root
-    mode: "0644"
-    content: |
-      # ANSIBLE BOSHQARADI — ssh roli (ssh_hardening_directives). Qo'lda tahrirlamang.
-      {% for k, v in ssh_hardening_directives.items() %}
-      {{ k }} {{ v }}
-      {% endfor %}
-    validate: "{{ ssh_validate_cmd }}"
-  when: (ssh_dropin.rc | default(1)) == 0
-  notify: reload sshd
   tags: [ssh, ssh_hardening]

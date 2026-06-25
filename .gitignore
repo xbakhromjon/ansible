@@ -7,3 +7,6 @@ log/*.log
 __pycache__/
 .idea
 /ansible.iml
+
+# Vault master parol — HECH QACHON commit qilinmaydi
+.vault_pass
