@@ -17,6 +17,22 @@ ssh_manage_hardening: true
 ssh_hardening_directives:
   PasswordAuthentication: "no"
 
+# --- Match bloklari (ixtiyoriy, shartli sozlamalar) ---
+# Ba'zi user/guruhga BOSHQACHA sozlama (SFTP-only, git-shell va h.k.). Match
+# GLOBAL direktivalardan KEYIN render qilinadi. Eslatma: AllowUsers/AllowGroups
+# Match ichida ISHLAMAYDI (ular global). Misol:
+#   ssh_match_blocks:
+#     - match: "User deploy"
+#       rules:
+#         ForceCommand: "/usr/bin/git-shell"
+#         PermitTTY: "no"
+#     - match: "Group sftponly"
+#       rules:
+#         ChrootDirectory: "/sftp/%u"
+#         ForceCommand: "internal-sftp"
+#         AllowTcpForwarding: "no"
+ssh_match_blocks: []
+
 # --- Drop-in joylashuvi ---
 # BARCHA sshd o'zgarishlari shu faylga yoziladi; asosiy sshd_config faqat
 # Include qatori uchun (bir martalik) tegiladi. 00- prefiks => leksik tartibda

@@ -12,3 +12,13 @@ AllowUsers {{ ssh_allow_users_final | join(' ') }}
 {{ key }} {{ value }}
 {% endfor %}
 {% endif %}
+{% if ssh_match_blocks | default([]) %}
+
+# Match bloklari — GLOBAL direktivalardan KEYIN bo'lishi SHART.
+{% for block in ssh_match_blocks %}
+Match {{ block.match }}
+{% for key, value in block.rules.items() %}
+    {{ key }} {{ value }}
+{% endfor %}
+{% endfor %}
+{% endif %}
