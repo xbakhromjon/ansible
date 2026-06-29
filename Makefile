@@ -27,6 +27,7 @@ ROLE      ?= basic
 LIMIT     ?=
 TAGS      ?=
 ARGS      ?=
+MARGS     ?=
 _limit     = $(if $(LIMIT),--limit $(LIMIT),)
 _tags      = $(if $(TAGS),--tags $(TAGS),)
 _opts      = $(_limit) $(_tags) $(ARGS)
@@ -74,8 +75,8 @@ molecule-setup: ## Molecule + docker driver + community.docker o'rnatadi (test u
 	$(GALAXY) collection install -r requirements-dev.yml -p ./collections
 	@$(MOLECULE) --version | head -1
 
-test: ## Rolni molecule bilan to'liq test qiladi — ROLE=basic|zsh|ssh|users (Docker kerak)
-	cd roles/$(ROLE) && $(MOLECULE) test
+test: ## Rolni molecule bilan to'liq test qiladi — ROLE=... [MARGS="--destroy=never"] (Docker kerak)
+	cd roles/$(ROLE) && $(MOLECULE) test $(MARGS)
 
 test-converge: ## Rolni konteynerga qo'llaydi, konteynerni TIRIK qoldiradi (debug). ROLE=...
 	cd roles/$(ROLE) && $(MOLECULE) converge

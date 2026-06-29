@@ -1,35 +1,4 @@
 ---
-# Bu fayl — foydalanuvchilar uchun SOURCE OF TRUTH.
-# Har biri dict:
-#   name      (majburiy) — login nomi
-#   shell     — login shell (default: users_default_shell)
-#   groups    — qo'shimcha guruhlar (masalan [docker]); guruh mavjud bo'lishi kerak
-#   sudo      — true bo'lsa /etc/sudoers.d/<name> (passwordless sudo)
-#   ssh_keys  — public key FAYL nomlari ro'yxati. Har biri
-#               files/ssh_keys/<nom> faylidan o'qiladi (users_ssh_keys_dir).
-#   password  — shifrlangan parol hash (ixtiyoriy)
-#   state     — present (default) | disabled | absent
-#                 present  — yaratiladi/faollashtiriladi, SSH'ga ruxsat (AllowUsers)
-#                 disabled — account lock + expire, SSH yopiladi, home SAQLANADI
-#                 absent   — akkaunt o'chiriladi (safe delete), home/data SAQLANADI
-#
-# >>> MUHIM (lockout!):
-#   - Kim SSH orqali kira olishi `ssh` roli AllowUsers'ni AYNAN shu ro'yxatdagi
-#     `present` userlardan quradi (+ ansible_user doimo qo'shiladi).
-#   - Ro'yxatda YO'Q userlar SSH'dan tushib qoladi (account o'chmaydi, faqat kirish yopiladi).
-#   - Demak SAQLAMOQCHI bo'lgan HAMMA userni shu yerga `present` qilib yozing,
-#     aks holda ular kira olmay qoladi.
-#
-# Misol:
-# users_users:
-#   - name: deploy
-#     sudo: true
-#     ssh_keys:
-#       - bahrom            # => files/ssh_keys/bahrom dan o'qiladi
-#   - name: alice            # eski user, faqat saqlash uchun (kalitsiz ham bo'ladi)
-#   - name: bob
-#     state: disabled        # ishdan ketdi — bloklanadi, ma'lumoti qoladi
-
 users_users:
   - name: ansible
     sudo: true
@@ -61,23 +30,22 @@ users_users:
     ssh_keys:
       - bahrom
 
-  - name: bahrom-2
-    sudo: true
-    state: present
-    ssh_keys:
-      - bahrom
-
   - name: takhir
     sudo: true
     ssh_keys:
       - takhir
 
-# --- Parollar (vault'dan) ---
-# Dastlabki parollar group_vars/all/vault.yml (shifrlangan) da
-# vault_user_passwords map sifatida. Bu yer faqat indirection — shunda
-# tasklar vault'siz nom (users_passwords) bilan ishlaydi va qaysi var maxfiy
-# ekani aniq (vault_ prefiksi). Parol faqat user YARATILGANDA qo'yiladi.
 users_passwords: "{{ vault_user_passwords | default({}) }}"
-
 users_prune_unmanaged: true
-users_prune_keep: []
+users_prune_keep: [ ]
+users_default_shell: /bin/zsh
+users_create_home: true
+users_force_password_change: false
+users_ssh_keys_dir: "{{ playbook_dir }}/../files/ssh_keys"
+users_zsh_setup: true
+users_zsh_theme: "dieter"
+users_zsh_plugins:
+  - git
+  - zsh-autosuggestions
+  - zsh-syntax-highlighting
+users_zsh_ohmyzsh_dir: "{{ zsh_ohmyzsh_dir | default('/usr/share/oh-my-zsh') }}"

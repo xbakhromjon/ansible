@@ -1,4 +1,8 @@
 ---
+# Rol qo'llab-quvvatlaydigan OS oilalari (ansible_os_family). Host shu ro'yxatda
+# bo'lmasa rol xabar bilan to'liq skip qilinadi (vars/<OS>.yml ham yuklanmaydi).
+zsh_supported_os_families: [Debian, RedHat]
+
 # zsh ikkilik fayli yo'li — /etc/shells ga yoziladi, tizim default shell sifatida
 # va users roli login shell sifatida ishlatadi. /bin/zsh butun fleet'da yaroqli.
 zsh_shell_path: /bin/zsh

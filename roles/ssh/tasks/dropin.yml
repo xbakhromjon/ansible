@@ -19,7 +19,7 @@
     group: root
     mode: "0644"
     validate: "{{ ssh_validate_cmd }}"
-  notify: reload sshd
+  register: ssh_r_dropin_template
   tags: [ssh]
 
 # Drop-in g'olib bo'lishi uchun Include faylning BOSHIDA bo'lishi kerak
@@ -34,7 +34,7 @@
     firstmatch: true
     state: present
     validate: "{{ ssh_validate_cmd }}"
-  notify: reload sshd
+  register: ssh_r_dropin_include
   tags: [ssh]
 
 # AllowUsers RO'YXAT direktivasi — bir nechta qator QO'SHILADI (union), "birinchi
@@ -48,5 +48,5 @@
     state: absent
     validate: "{{ ssh_validate_cmd }}"
   when: ssh_manage_allow_users | bool
-  notify: reload sshd
+  register: ssh_r_dropin_allowclean
   tags: [ssh, ssh_allow_users]

@@ -1,0 +1,12 @@
+---
+zsh_shell_path: /bin/zsh
+zsh_extra_packages: [ ]
+zsh_set_system_default: true
+zsh_install_ohmyzsh: true
+zsh_ohmyzsh_dir: /usr/share/oh-my-zsh
+zsh_ohmyzsh_repo: https://github.com/ohmyzsh/ohmyzsh.git
+zsh_external_plugins:
+  - name: zsh-autosuggestions
+    repo: https://github.com/zsh-users/zsh-autosuggestions.git
+  - name: zsh-syntax-highlighting
+    repo: https://github.com/zsh-users/zsh-syntax-highlighting.git

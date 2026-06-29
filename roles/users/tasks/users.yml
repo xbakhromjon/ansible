@@ -8,7 +8,7 @@
 # Kim SSH orqali kira olishi `ssh` roli (AllowUsers) bilan hal qilinadi.
 
 # Userlar YARATILISHIDAN OLDIN mavjudlarini suratga olamiz. Shunda keyin
-# "yangi yaratilgan" (parol olgan) userlarni aniqlab, ularni birinchi loginда
+# "yangi yaratilgan" (parol olgan) userlarni aniqlab, ularni birinchi logindа
 # parol almashtirishga majbur qila olamiz (chage -d 0) — idempotent.
 - name: Snapshot existing users before creation
   ansible.builtin.getent:
@@ -57,20 +57,41 @@
 # useradd mavjud home katalogini QAYTA egalamaydi (faqat yaratilishda). Agar user
 # o'chirilib boshqa UID bilan qayta yaratilgan bo'lsa, home (va ayniqsa .ssh /
 # authorized_keys) eski yetim UID'da qoladi -> sshd StrictModes kalitni rad etadi,
-# user home'iga yoza olmaydi. RECURSIVE chown bilan butun home'ni userga beramiz.
-- name: Ensure home directory is owned by the user (recursive — fixes stale UID after recreate)
-  ansible.builtin.file:
+# user home'iga yoza olmaydi.
+#
+# XAVFSIZLIK: har run'da ko'r-ko'rona recursive chown qilmaymiz — root ostida,
+# user nazoratidagi katalogni follow=true bilan chown qilish symlink orqali home
+# TASHQARISIGA chiqib ketishi mumkin (privilege escalation). Buning o'rniga:
+#   1) home egasini stat bilan tekshiramiz,
+#   2) FAQAT egasi noto'g'ri bo'lsa (yetim UID / qayta yaratilgan) tiklaymiz,
+#   3) follow=false — symlink target'iga chiqilmaydi, hammasi home ichida qoladi.
+- name: Stat home directory (detect stale ownership after recreate)
+  ansible.builtin.stat:
     path: "/home/{{ item.name }}"
-    owner: "{{ item.name }}"
-    group: "{{ item.name }}"
-    state: directory
-    recurse: true
   loop: "{{ users_users }}"
+  register: users_home_stat
   loop_control:
     label: "{{ item.name }}"
   when:
     - (item.state | default('present')) in ['present', 'disabled']
     - item.create_home | default(users_create_home)
+  tags: [ users ]
+
+- name: Fix home ownership only when wrong (safe — no symlink follow)
+  ansible.builtin.file:
+    path: "/home/{{ item.item.name }}"
+    owner: "{{ item.item.name }}"
+    group: "{{ item.item.name }}"
+    state: directory
+    recurse: true
+    follow: false
+  loop: "{{ users_home_stat.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when:
+    - not (item.skipped | default(false))
+    - item.stat.exists | default(false)
+    - (item.stat.pw_name | default('')) != item.item.name
   tags: [ users ]
 
 # CentOS/SELinux: tiklangan home'dagi .ssh/authorized_keys konteksti noto'g'ri

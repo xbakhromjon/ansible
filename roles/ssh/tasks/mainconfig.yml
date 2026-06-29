@@ -12,7 +12,7 @@
     state: present
     validate: "{{ ssh_validate_cmd }}"
   when: ssh_manage_allow_users | bool
-  notify: reload sshd
+  register: ssh_r_main_allow
   tags: [ssh, ssh_allow_users]
 
 - name: Set hardening directives in main sshd_config (no Include support)
@@ -26,7 +26,7 @@
   loop_control:
     label: "{{ item.key }} {{ item.value }}"
   when: ssh_manage_hardening | bool
-  notify: reload sshd
+  register: ssh_r_main_hardening
   tags: [ssh, ssh_hardening]
 
 # Match bloklari faylning OXIRIGA (global direktivalardan keyin) — blockinfile.
@@ -44,5 +44,5 @@
       {% endfor %}
     validate: "{{ ssh_validate_cmd }}"
   when: ssh_match_blocks | default([]) | length > 0
-  notify: reload sshd
+  register: ssh_r_main_match
   tags: [ssh, ssh_match]

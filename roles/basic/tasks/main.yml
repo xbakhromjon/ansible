@@ -1,12 +1,25 @@
 ---
-- name: Include OS-specific variables
-  ansible.builtin.include_vars: "{{ ansible_os_family }}.yml"
+# OS-guard: host qo'llab-quvvatlanmaydigan OS oilasida bo'lsa, rolni xabar bilan
+# skip qilamiz (vars/<OS>.yml yo'qligi sababli include_vars yiqilishini oldini oladi).
+- name: basic — skip on unsupported OS family
+  ansible.builtin.debug:
+    msg: >-
+      basic roli '{{ ansible_os_family }}' OS oilasida qo'llab-quvvatlanmaydi
+      (ruxsat etilgan: {{ basic_supported_os_families | join(', ') }}). Skip qilinmoqda.
+  when: ansible_os_family not in basic_supported_os_families
   tags: [basic, basic_timezone, basic_packages]
 
-- name: Configure timezone
-  ansible.builtin.include_tasks: timezone.yml
-  tags: [basic, basic_timezone]
+- name: basic — role tasks (only on supported OS family)
+  when: ansible_os_family in basic_supported_os_families
+  tags: [basic, basic_timezone, basic_packages]
+  block:
+    - name: Include OS-specific variables
+      ansible.builtin.include_vars: "{{ ansible_os_family }}.yml"
 
-- name: Install base packages
-  ansible.builtin.include_tasks: packages.yml
-  tags: [basic, basic_packages]
+    - name: Configure timezone
+      ansible.builtin.include_tasks: timezone.yml
+      tags: [basic_timezone]
+
+    - name: Install base packages
+      ansible.builtin.include_tasks: packages.yml
+      tags: [basic_packages]

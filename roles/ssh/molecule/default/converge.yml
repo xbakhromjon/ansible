@@ -1,0 +1,14 @@
+---
+- name: Converge
+  hosts: all
+  become: true
+  vars:
+    # Docker connection'da ansible_user aniq bo'lsin (AllowUsers + lockout guard).
+    ansible_user: root
+    # Match blok renderlanishini ham sinaymiz (drop-in template / mainconfig).
+    ssh_match_blocks:
+      - match: "User root"
+        rules:
+          X11Forwarding: "no"
+  roles:
+    - role: ssh

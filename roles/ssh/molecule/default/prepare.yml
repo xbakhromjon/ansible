@@ -1,0 +1,47 @@
+---
+# Test konteynerlarini tayyorlash. ssh roli sshd binari, host kalitlari va
+# ishlab turgan sshd xizmatini talab qiladi (validate + reload uchun). Bundan
+# tashqari lockout guard ansible_user (root) da authorized_keys borligini kutadi.
+- name: Prepare
+  hosts: all
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Update apt cache (Debian)
+      ansible.builtin.apt:
+        update_cache: true
+      when: ansible_os_family == "Debian"
+
+    - name: Install openssh-server
+      ansible.builtin.package:
+        name: openssh-server
+        state: present
+
+    - name: Generate sshd host keys (needed for sshd -t and start)
+      ansible.builtin.command: ssh-keygen -A
+      args:
+        creates: /etc/ssh/ssh_host_ed25519_key
+
+    - name: Ensure sshd is running (Debian -> ssh, RedHat -> sshd)
+      ansible.builtin.service:
+        name: "{{ 'ssh' if ansible_os_family == 'Debian' else 'sshd' }}"
+        state: started
+        enabled: true
+
+    # Lockout guard: PasswordAuthentication=no qilinganda ansible_user (root)
+    # uchun authorized_keys bo'lishi SHART — aks holda guard to'xtatadi.
+    - name: Ensure /root/.ssh exists
+      ansible.builtin.file:
+        path: /root/.ssh
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Seed root authorized_keys (satisfies lockout guard)
+      ansible.builtin.copy:
+        dest: /root/.ssh/authorized_keys
+        content: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAADUMMYMOLECULETESTKEYONLY root@molecule\n"
+        owner: root
+        group: root
+        mode: "0600"

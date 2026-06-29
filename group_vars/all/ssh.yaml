@@ -1,2 +1,10 @@
 ssh_hardening_directives:
-  PasswordAuthentication: "yes"
+  PasswordAuthentication: "no"
+  PermitRootLogin: "no"
+
+ssh_manage_allow_users: true
+ssh_allow_users_extra: [ ]
+ssh_manage_hardening: true
+ssh_match_blocks: [ ]
+ssh_config_d: /etc/ssh/sshd_config.d
+ssh_dropin_file: "{{ ssh_config_d }}/00-ansible.conf"

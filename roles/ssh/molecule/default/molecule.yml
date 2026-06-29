@@ -1,0 +1,26 @@
+---
+# sshd'ni test qilish uchun konteynerда systemd ishlashi kerak (service reload).
+# Shuning uchun privileged + cgroup mount + image'ning init CMD'si (command: "").
+driver:
+  name: docker
+platforms:
+  - name: ssh-ubuntu-2404
+    image: geerlingguy/docker-ubuntu2404-ansible:latest
+    pre_build_image: true
+    privileged: true
+    cgroupns_mode: host
+    command: ""
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+  - name: ssh-rocky-10
+    image: geerlingguy/docker-rockylinux10-ansible:latest
+    pre_build_image: true
+    privileged: true
+    cgroupns_mode: host
+    command: ""
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+provisioner:
+  name: ansible
+verifier:
+  name: ansible

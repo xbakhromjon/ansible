@@ -1,7 +1,11 @@
 ---
+# Rol qo'llab-quvvatlaydigan OS oilalari (ansible_os_family). Host shu ro'yxatda
+# bo'lmasa rol xabar bilan to'liq skip qilinadi (vars/<OS>.yml ham yuklanmaydi).
+basic_supported_os_families: [Debian, RedHat]
+
 # Tizim vaqt mintaqasi
 basic_timezone: "UTC"
 
 # Foydalanuvchi qo'shadigan qo'shimcha paketlar (OS-ga bog'liq emas).
 # Asosiy paketlar vars/<OS>.yml dagi basic_base_packages da.
-basic_extra_packages: []
+basic_extra_packages: [ ]

@@ -1,5 +1,5 @@
 ---
-- name: reload sshd
-  ansible.builtin.service:
-    name: "{{ ssh_service_name }}"
-    state: reloaded
+# Eslatma: sshd reload endi handler EMAS — u tasks/apply.yml dagi block ICHIDA
+# oddiy task sifatida bajariladi. Sabab: handler block'dan tashqarida, undan
+# keyin ishlaydi, shuning uchun reload fail bo'lsa rescue uni USHLAY OLMASDI.
+# Reload'ni blok ichiga ko'chirib, rollback (rescue) reload fail'ini ham qamraydi.

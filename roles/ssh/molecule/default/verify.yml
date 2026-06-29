@@ -1,0 +1,102 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  vars:
+    ansible_user: root
+    dropin: /etc/ssh/sshd_config.d/00-ansible.conf
+    backup_dir: /etc/ssh/.ansible-backup
+  tasks:
+    # ---------- Happy path (converge valid configni qo'lladi) ----------
+    - name: Drop-in created (both test images support Include)
+      ansible.builtin.stat:
+        path: "{{ dropin }}"
+      register: dropin_stat
+
+    - name: Assert drop-in exists
+      ansible.builtin.assert:
+        that: dropin_stat.stat.exists
+        fail_msg: "drop-in yaratilmadi: {{ dropin }}"
+
+    - name: Read drop-in
+      ansible.builtin.slurp:
+        src: "{{ dropin }}"
+      register: dropin_content
+
+    - name: Assert drop-in has AllowUsers + hardening + Match
+      ansible.builtin.assert:
+        that:
+          - "'AllowUsers' in (dropin_content.content | b64decode)"
+          - "'PermitRootLogin no' in (dropin_content.content | b64decode)"
+          - "'Match User root' in (dropin_content.content | b64decode)"
+        fail_msg: "drop-in mazmuni kutilganidek emas"
+
+    - name: Full sshd config is valid (combined)
+      ansible.builtin.command: sshd -t
+      changed_when: false
+
+    - name: No leftover backup after successful run (always cleaned)
+      ansible.builtin.stat:
+        path: "{{ backup_dir }}/sshd_config.bak"
+      register: bak_stat
+
+    - name: Assert backup cleaned
+      ansible.builtin.assert:
+        that: not bak_stat.stat.exists
+        fail_msg: "zaxira tozalanmagan: {{ backup_dir }}/sshd_config.bak"
+
+    # ---------- Rollback path (ataylab buzuq config) ----------
+    - name: Snapshot known-good drop-in
+      ansible.builtin.slurp:
+        src: "{{ dropin }}"
+      register: known_good
+
+    - name: Apply broken config — expect role failure + rollback
+      block:
+        - name: Run ssh role with an invalid sshd directive
+          ansible.builtin.include_role:
+            name: ssh
+          vars:
+            ssh_match_blocks:
+              - match: "User root"
+                rules:
+                  ThisDirectiveDoesNotExist: "yes"
+
+        - name: Unreachable — role should have failed
+          ansible.builtin.set_fact:
+            rollback_worked: false
+      rescue:
+        - name: Role failed as expected — rollback exercised
+          ansible.builtin.set_fact:
+            rollback_worked: true
+
+    - name: Assert broken config caused failure
+      ansible.builtin.assert:
+        that: rollback_worked | default(false)
+        fail_msg: "buzuq config fail bermadi — rollback/guard ishlamadi"
+
+    - name: Re-read drop-in after rollback
+      ansible.builtin.slurp:
+        src: "{{ dropin }}"
+      register: after_rollback
+
+    - name: Assert config restored to known-good (no bad directive on disk)
+      ansible.builtin.assert:
+        that:
+          - (after_rollback.content | b64decode) == (known_good.content | b64decode)
+          - "'ThisDirectiveDoesNotExist' not in (after_rollback.content | b64decode)"
+        fail_msg: "rollback eski (known-good) configni tiklamadi"
+
+    - name: sshd config still valid after rollback
+      ansible.builtin.command: sshd -t
+      changed_when: false
+
+    - name: No leftover backup after rollback (always cleaned)
+      ansible.builtin.stat:
+        path: "{{ backup_dir }}/sshd_config.bak"
+      register: bak_stat2
+
+    - name: Assert backup cleaned after rollback
+      ansible.builtin.assert:
+        that: not bak_stat2.stat.exists
+        fail_msg: "rollbackdan keyin zaxira tozalanmagan"

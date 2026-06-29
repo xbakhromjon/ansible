@@ -1,4 +1,8 @@
 ---
+# Rol qo'llab-quvvatlaydigan OS oilalari (ansible_os_family). Host shu ro'yxatda
+# bo'lmasa rol xabar bilan to'liq skip qilinadi (vars/<OS>.yml ham yuklanmaydi).
+ssh_supported_os_families: [Debian, RedHat]
+
 # AllowUsers'ni boshqarish (source of truth). false bo'lsa drop-in'ga
 # AllowUsers yozilmaydi.
 ssh_manage_allow_users: true
@@ -16,6 +20,7 @@ ssh_manage_hardening: true
 #     authorized_keys bo'lishi SHART — aks holda playbook to'xtaydi (guard).
 ssh_hardening_directives:
   PasswordAuthentication: "no"
+  PermitRootLogin: "no"
 
 # --- Match bloklari (ixtiyoriy, shartli sozlamalar) ---
 # Ba'zi user/guruhga BOSHQACHA sozlama (SFTP-only, git-shell va h.k.). Match
@@ -32,6 +37,12 @@ ssh_hardening_directives:
 #         ForceCommand: "internal-sftp"
 #         AllowTcpForwarding: "no"
 ssh_match_blocks: []
+
+# --- Backup / rollback ---
+# Konfiguratsiya o'zgarishidan OLDIN known-good sshd_config (va drop-in) shu
+# katalogga zaxiralanadi; biror bosqich fail bo'lsa rescue eski holatni qaytaradi.
+# sshd_config.d EMAS — Include "*.conf" uni skanlab qolmasligi uchun alohida.
+ssh_backup_dir: /etc/ssh/.ansible-backup
 
 # --- Drop-in joylashuvi ---
 # BARCHA sshd o'zgarishlari shu faylga yoziladi; asosiy sshd_config faqat
