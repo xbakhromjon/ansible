@@ -4,30 +4,80 @@
   become: true
   vars:
     zsh_shell_path: /bin/zsh
+    zsh_ohmyzsh_dir: /usr/share/oh-my-zsh
+    zsh_expected_plugins:
+      - zsh-autosuggestions
+      - zsh-syntax-highlighting
   tasks:
-    - name: zsh o'rnatilgan va ishga tushadi
+    - name: zsh is installed and runnable
       ansible.builtin.command: zsh --version
       changed_when: false
 
-    - name: zsh binar holatini tekshirish
+    - name: Stat the zsh binary
       ansible.builtin.stat:
         path: "{{ zsh_shell_path }}"
       register: zsh_bin
 
-    - name: zsh binar mavjud va bajariladigan ekanini tasdiqlash
+    - name: Assert the zsh binary exists and is executable
       ansible.builtin.assert:
         that:
           - zsh_bin.stat.exists
           - zsh_bin.stat.executable | default(false)
-        fail_msg: "{{ zsh_shell_path }} yo'q yoki bajariladigan emas"
+        fail_msg: "{{ zsh_shell_path }} is missing or not executable"
 
-    - name: /etc/shells mazmunini o'qish
+    - name: Read /etc/shells
       ansible.builtin.slurp:
         src: /etc/shells
       register: etc_shells
 
-    - name: zsh yaroqli login shell sifatida /etc/shells da borligini tasdiqlash
+    - name: Assert zsh is registered as a valid login shell in /etc/shells
       ansible.builtin.assert:
         that:
           - zsh_shell_path in (etc_shells.content | b64decode)
-        fail_msg: "{{ zsh_shell_path }} /etc/shells da ro'yxatdan o'tmagan"
+        fail_msg: "{{ zsh_shell_path }} is not registered in /etc/shells"
+
+    # --- Oh My Zsh (shared install) ---
+    - name: Stat the shared Oh My Zsh directory
+      ansible.builtin.stat:
+        path: "{{ zsh_ohmyzsh_dir }}"
+      register: omz_dir
+
+    - name: Assert the Oh My Zsh directory exists and is world-readable
+      ansible.builtin.assert:
+        that:
+          - omz_dir.stat.exists
+          - omz_dir.stat.isdir
+          - omz_dir.stat.pw_name == 'root'
+          - (omz_dir.stat.mode[3] | int) in [4, 5, 6, 7]
+        fail_msg: >-
+          {{ zsh_ohmyzsh_dir }} is missing, not a directory, not root-owned,
+          or not world-readable (mode {{ omz_dir.stat.mode | default('n/a') }})
+
+    - name: Stat the core Oh My Zsh entrypoint script
+      ansible.builtin.stat:
+        path: "{{ zsh_ohmyzsh_dir }}/oh-my-zsh.sh"
+      register: omz_entrypoint
+
+    - name: Assert the Oh My Zsh framework was cloned
+      ansible.builtin.assert:
+        that:
+          - omz_entrypoint.stat.exists
+        fail_msg: >-
+          {{ zsh_ohmyzsh_dir }}/oh-my-zsh.sh not found — the framework clone
+          did not complete
+
+    - name: Stat each external plugin directory
+      ansible.builtin.stat:
+        path: "{{ zsh_ohmyzsh_dir }}/custom/plugins/{{ item }}"
+      loop: "{{ zsh_expected_plugins }}"
+      register: omz_plugins
+
+    - name: Assert each external plugin was cloned
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+          - item.stat.isdir
+        fail_msg: "Plugin '{{ item.item }}' is missing from the shared custom/plugins directory"
+      loop: "{{ omz_plugins.results }}"
+      loop_control:
+        label: "{{ item.item }}"

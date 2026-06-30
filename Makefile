@@ -1,19 +1,20 @@
-# Ansible project — qulay buyruqlar.
-# Hammasi loyiha ichidagi .venv va ./collections bilan ishlaydi (global tegmaydi).
+# Ansible project — convenience commands.
+# Everything runs against the project-local .venv and ./collections (the global
+# environment is never touched).
 #
-# Birinchi marta:   make setup
-# Ko'rish:          make help
-# Ishga tushirish:  make bootstrap
+# First time:   make setup
+# Overview:     make help
+# Run:          make bootstrap
 #
-# Rol testi (molecule, Docker kerak):
-#   make molecule-setup            # bir marta — molecule o'rnatadi
-#   make test ROLE=basic           # rolni toza konteynerda test qiladi
-#   make test-converge ROLE=zsh    # qo'llab, konteynerni tirik qoldiradi (debug)
+# Role testing (molecule, Docker required):
+#   make molecule-setup            # one-time — installs molecule
+#   make test ROLE=basic           # tests the role in a clean container
+#   make test-converge ROLE=zsh    # applies the role, keeps the container alive (debug)
 #
-# Ixtiyoriy parametrlar:
-#   make bootstrap LIMIT=ubuntu-18         # faqat bitta host
-#   make basic TAGS=basic_timezone         # faqat bitta teg
-#   make bootstrap ARGS="--check --diff"   # qo'shimcha bayroqlar
+# Optional parameters:
+#   make bootstrap LIMIT=ubuntu-18         # a single host only
+#   make basic TAGS=basic_timezone         # a single tag only
+#   make bootstrap ARGS="--check --diff"   # extra flags
 
 PY        ?= python3.12
 VENV      := .venv
@@ -34,68 +35,75 @@ _opts      = $(_limit) $(_tags) $(ARGS)
 
 .DEFAULT_GOAL := help
 .PHONY: help setup deps ping syntax check bootstrap basic users ssh facts hosts clean \
-        molecule-setup test test-converge test-verify test-login test-destroy
+        molecule-setup test test-create test-converge test-verify test-login test-destroy
 
-help: ## Shu yordam ro'yxatini ko'rsatadi
+help: ## Show this help listing
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 
-setup: ## venv yaratadi + ansible-core va collections o'rnatadi (birinchi marta)
+setup: ## Create the venv + install ansible-core and collections (first time)
 	$(PY) -m venv $(VENV)
 	$(BIN)/pip install -q --upgrade pip -r requirements.txt
 	$(GALAXY) collection install -r requirements.yml -p ./collections
 	@$(ANSIBLE) --version | head -1
 
-deps: ## Collections'ni requirements.yml dan qayta o'rnatadi (--force)
+deps: ## Reinstall collections from requirements.yml (--force)
 	$(GALAXY) collection install -r requirements.yml -p ./collections --force
 
-ping: ## Hostlarga ulanishni tekshiradi
+ping: ## Check connectivity to the hosts
 	$(ANSIBLE) all -m ping $(_limit)
 
-syntax: ## Playbook sintaksisini tekshiradi (serverga ulanmaydi)
+syntax: ## Check playbook syntax (does not connect to any server)
 	$(PLAYBOOK) playbooks/bootstrap.yml --syntax-check
 
-check: ## Bootstrap'ni quruq ishga tushiradi (--check --diff, hech narsa o'zgartirmaydi)
+check: ## Dry-run the bootstrap playbook (--check --diff, changes nothing)
 	$(PLAYBOOK) playbooks/bootstrap.yml --check --diff $(_opts)
 
-users: ## Faqat users rol (foydalanuvchilar yaratish/disable)
+users: ## Run the users role only (create/disable users)
 	$(PLAYBOOK) playbooks/users.yml $(_opts)
 
-vault-edit: ## Shifrlangan parol faylini tahrirlaydi (group_vars/all/vault.yml)
+vault-edit: ## Edit the encrypted secrets file (group_vars/all/vault.yml)
 	$(BIN)/ansible-vault edit group_vars/all/vault.yml
 
-vault-view: ## Shifrlangan parol faylini ko'radi (o'zgartirmasdan)
+vault-view: ## View the encrypted secrets file (without editing)
 	$(BIN)/ansible-vault view group_vars/all/vault.yml
 
-# Molecule rol papkasidan ishga tushadi -> ildizdagi ansible.cfg topilmaydi.
-# Shuning uchun collections yo'lini aniq beramiz (./collections deterministik).
-test test-converge test-verify test-login test-destroy: export ANSIBLE_COLLECTIONS_PATH := $(CURDIR)/collections
+# Molecule runs from the role directory -> the root ansible.cfg is not found.
+# So we pass the collections path explicitly (./collections is deterministic).
+test test-create test-converge test-verify test-login test-destroy: export ANSIBLE_COLLECTIONS_PATH := $(CURDIR)/collections
+# Molecule invokes `ansible-playbook` via PATH. Without putting .venv/bin first,
+# the global (brew) ansible-core is used -> fails on legacy hosts (Py3.6). So we
+# force the venv's ansible-core 2.16 to be selected.
+test test-create test-converge test-verify test-login test-destroy: export PATH := $(CURDIR)/$(BIN):$(PATH)
 
-molecule-setup: ## Molecule + docker driver + community.docker o'rnatadi (test uchun, bir marta)
+molecule-setup: ## Install molecule + docker driver + community.docker (for testing, one-time)
 	$(BIN)/pip install -q -r requirements-dev.txt
 	$(GALAXY) collection install -r requirements-dev.yml -p ./collections
 	@$(MOLECULE) --version | head -1
 
-test: ## Rolni molecule bilan to'liq test qiladi — ROLE=... [MARGS="--destroy=never"] (Docker kerak)
+test: ## Run the full molecule test for a role — ROLE=... [MARGS="--destroy=never"] (Docker required)
 	cd roles/$(ROLE) && $(MOLECULE) test $(MARGS)
 
-test-converge: ## Rolni konteynerga qo'llaydi, konteynerni TIRIK qoldiradi (debug). ROLE=...
-	cd roles/$(ROLE) && $(MOLECULE) converge
+test-create: ## Create the test containers without running the role. ROLE=...
+	cd roles/$(ROLE) && $(MOLECULE) create
 
-test-verify: ## Faqat verify (tekshiruv) bosqichini qayta ishga tushiradi. ROLE=...
+test-converge: ## Apply the role to the container and keep it ALIVE (debug). ROLE=...
+	cd roles/$(ROLE) && $(MOLECULE) converge $(MARGS)
+
+test-verify: ## Re-run the verify (assertion) step only. ROLE=...
 	cd roles/$(ROLE) && $(MOLECULE) verify
 
-test-login: ## Tirik test konteyneriga kiradi (converge'dan keyin). ROLE=...
+test-login: ## Log into the live test container (after converge). ROLE=...
 	cd roles/$(ROLE) && $(MOLECULE) login
 
-test-destroy: ## Test konteynerlarini o'chiradi (tozalash). ROLE=...
+test-destroy: ## Destroy the test containers (cleanup). ROLE=...
 	cd roles/$(ROLE) && $(MOLECULE) destroy
 
-facts: ## Hostlardan ma'lumot (facts) yig'adi
+facts: ## Gather facts from the hosts
 	$(ANSIBLE) all -m setup $(_limit)
 
-hosts: ## Inventory hostlarini ro'yxatlaydi
+hosts: ## List the inventory hosts
 	$(ANSIBLE) all --list-hosts $(_limit)
 
-clean: ## venv, collections, log va fact-keshni o'chiradi
+clean: ## Remove the venv, collections, logs, and the fact cache
 	rm -rf $(VENV) ./collections log/*.log *.retry /tmp/ansible_facts
-	@echo "Tozalandi. Qayta tiklash uchun: make setup"
+	@echo "Cleaned. To rebuild: make setup"

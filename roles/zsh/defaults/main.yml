@@ -1,30 +1,32 @@
 ---
-# Rol qo'llab-quvvatlaydigan OS oilalari (ansible_os_family). Host shu ro'yxatda
-# bo'lmasa rol xabar bilan to'liq skip qilinadi (vars/<OS>.yml ham yuklanmaydi).
-zsh_supported_os_families: [Debian, RedHat]
+# OS families supported by this role (ansible_os_family). If the host is not in
+# this list, the role is skipped entirely with a message (vars/<OS>.yml is not
+# loaded either).
+zsh_supported_os_families: [ Debian, RedHat ]
 
-# zsh ikkilik fayli yo'li — /etc/shells ga yoziladi, tizim default shell sifatida
-# va users roli login shell sifatida ishlatadi. /bin/zsh butun fleet'da yaroqli.
+# Path to the zsh binary. Written to /etc/shells, used as the system default
+# shell, and used as the login shell by the `users` role. /bin/zsh is valid
+# across the whole fleet.
 zsh_shell_path: /bin/zsh
 
-# Foydalanuvchi qo'shadigan qo'shimcha zsh paketlari.
-zsh_extra_packages: []
+# Additional zsh-related packages the user may want to install.
+zsh_extra_packages: [ ]
 
-# true bo'lsa tizim default shell'i zsh qilinadi (/etc/default/useradd va
-# Debian'da /etc/adduser.conf) — useradd/adduser bilan yaratilgan yangi userlar
-# avtomatik zsh oladi. false bo'lsa faqat Ansible-managed userlar zsh oladi.
+# When true, set the system default shell to zsh (/etc/default/useradd, and
+# /etc/adduser.conf on Debian) so that new users created with useradd/adduser
+# get zsh automatically. When false, only Ansible-managed users get zsh.
 zsh_set_system_default: true
 
-# --- Oh My Zsh (UMUMIY / shared o'rnatish) ---
-# Framework bir marta shu joyga klonlanadi (root, read-only) — HAMMA user
-# foydalanadi (per-user klon emas). Per-user .zshrc shunga ishora qiladi
-# (users roli). false bo'lsa OMZ o'rnatilmaydi.
+# --- Oh My Zsh (SHARED install) ---
+# The framework is cloned once into a shared, root-owned, read-only location
+# used by EVERY user (not a per-user clone). Per-user .zshrc files point here
+# (managed by the `users` role). Set to false to skip installing Oh My Zsh.
 zsh_install_ohmyzsh: true
 zsh_ohmyzsh_dir: /usr/share/oh-my-zsh
 zsh_ohmyzsh_repo: https://github.com/ohmyzsh/ohmyzsh.git
 
-# Git'dan klonlanadigan tashqi pluginlar (shared custom/plugins ga).
-# Built-in'lar (git) bu yerda emas — ular OMZ bilan keladi.
+# External plugins cloned from git into the shared custom/plugins directory.
+# Built-in plugins (e.g. git) are not listed here — they ship with Oh My Zsh.
 zsh_external_plugins:
   - name: zsh-autosuggestions
     repo: https://github.com/zsh-users/zsh-autosuggestions.git
