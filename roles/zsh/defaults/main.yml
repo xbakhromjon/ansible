@@ -23,6 +23,20 @@ zsh_install_ohmyzsh: true
 zsh_ohmyzsh_dir: /usr/share/oh-my-zsh
 zsh_ohmyzsh_repo: https://github.com/ohmyzsh/ohmyzsh.git
 
+# Git HTTPS klonlari uchun transport sozlamalari. Rocky 10 kabi yangi
+# distrolarda git default HTTP/2 tanlaydi; ba'zi tarmoq/proxy/firewall HTTP/2
+# stream'ni o'rtada CANCEL qiladi ("curl 92 ... stream not closed cleanly")
+# va klon "early EOF" bilan uziladi. HTTP/1.1 multipleksing ishlatmaydi —
+# bu muammoni bartaraf qiladi. postBuffer katta pack uchun zaxira.
+zsh_git_http_version: "HTTP/1.1"
+zsh_git_post_buffer: "524288000" # 500 MB
+zsh_git_clone_env:
+  GIT_CONFIG_COUNT: "2"
+  GIT_CONFIG_KEY_0: http.version
+  GIT_CONFIG_VALUE_0: "{{ zsh_git_http_version }}"
+  GIT_CONFIG_KEY_1: http.postBuffer
+  GIT_CONFIG_VALUE_1: "{{ zsh_git_post_buffer }}"
+
 # Git'dan klonlanadigan tashqi pluginlar (shared custom/plugins ga).
 # Built-in'lar (git) bu yerda emas — ular OMZ bilan keladi.
 zsh_external_plugins:

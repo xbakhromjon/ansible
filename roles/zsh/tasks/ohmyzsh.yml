@@ -11,6 +11,7 @@
     version: master
     depth: 1
     update: false
+  environment: "{{ zsh_git_clone_env }}"
   tags: [zsh]
 
 - name: Clone external zsh plugins (shared)
@@ -20,6 +21,7 @@
     version: "{{ item.version | default('master') }}"
     depth: 1
     update: false
+  environment: "{{ zsh_git_clone_env }}"
   loop: "{{ zsh_external_plugins }}"
   loop_control:
     label: "{{ item.name }}"
