@@ -2,16 +2,16 @@
 driver:
   name: docker
 platforms:
-  - name: ubuntu-2404
+  - name: zsh-ubuntu-2404
     image: geerlingguy/docker-ubuntu2404-ansible:latest
     pre_build_image: true
-  - name: rocky-10
+  - name: zsh-rocky-10
     image: geerlingguy/docker-rockylinux10-ansible:latest
     pre_build_image: true
-  - name: rocky-8
+  - name: zsh-rocky-8
     image: geerlingguy/docker-rockylinux8-ansible:latest
     pre_build_image: true
-  - name: ubuntu-1804
+  - name: zsh-ubuntu-1804
     image: geerlingguy/docker-ubuntu1804-ansible:latest
     pre_build_image: true
 provisioner:
