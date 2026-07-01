@@ -20,26 +20,26 @@
   when: ansible_os_family == "RedHat"
   tags: [zsh]
 
-# Safety: users roli bu yo'lni login shell qilib qo'yadi. Agar binar yo'q
-# bo'lsa, userlar buzilgan shell bilan qolib login'da tushib qoladi —
-# shuning uchun oldindan mavjudligini tasdiqlaymiz.
-- name: Verify zsh binary exists at expected path
+# The `users` role sets this path as the users' login shell. If the binary is
+# missing, those users would be locked out at login with a broken shell, so we
+# confirm it exists before proceeding.
+- name: Check that the zsh binary exists at the expected path
   ansible.builtin.stat:
     path: "{{ zsh_shell_path }}"
   register: zsh_bin
   tags: [zsh]
 
-- name: Assert zsh binary is present
+- name: Assert that the zsh binary is present and executable
   ansible.builtin.assert:
     that:
       - zsh_bin.stat.exists
       - zsh_bin.stat.executable | default(false)
     fail_msg: >-
-      zsh {{ zsh_shell_path }} da topilmadi. zsh_shell_path ni shu tizimdagi
-      haqiqiy yo'lga moslang (masalan: command -v zsh).
+      zsh was not found at {{ zsh_shell_path }}. Set zsh_shell_path to the
+      actual path on this system (e.g. the output of `command -v zsh`).
   tags: [zsh]
 
-- name: Ensure zsh is a valid login shell (/etc/shells)
+- name: Register zsh as a valid login shell (/etc/shells)
   ansible.builtin.lineinfile:
     path: /etc/shells
     line: "{{ zsh_shell_path }}"

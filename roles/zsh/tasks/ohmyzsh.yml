@@ -1,35 +1,51 @@
 ---
-# Oh My Zsh framework'ni UMUMIY joyga o'rnatadi (bir marta, hamma user uchun).
-# Root egaligida, read-only, world-readable. Per-user .zshrc shu yerga ishora
-# qiladi (users roli). Bu per-user klon (egalik/SELinux/disk muammolari) ni
-# bartaraf qiladi.
+# Install the Oh My Zsh framework once into a SHARED, root-owned, read-only,
+# world-readable location used by every user. Per-user .zshrc files (managed by
+# the `users` role) point here. A shared install avoids the ownership, SELinux,
+# and disk-usage problems of cloning the framework separately for each user.
 
-- name: Install shared Oh My Zsh framework
+# git is required by the clone tasks below and is missing from some minimal
+# images, so we make sure it is installed first.
+- name: Ensure git is installed (required for cloning)
+  ansible.builtin.package:
+    name: git
+    state: present
+  tags: [zsh]
+
+# Cloning from GitHub occasionally fails on a transient network drop
+# (early EOF / RPC failed), so we retry a few times.
+- name: Clone the shared Oh My Zsh framework
   ansible.builtin.git:
     repo: "{{ zsh_ohmyzsh_repo }}"
     dest: "{{ zsh_ohmyzsh_dir }}"
     version: master
     depth: 1
     update: false
-  environment: "{{ zsh_git_clone_env }}"
+  register: zsh_ohmyzsh_clone
+  until: zsh_ohmyzsh_clone is succeeded
+  retries: 3
+  delay: 5
   tags: [zsh]
 
-- name: Clone external zsh plugins (shared)
+- name: Clone external zsh plugins into the shared custom directory
   ansible.builtin.git:
     repo: "{{ item.repo }}"
     dest: "{{ zsh_ohmyzsh_dir }}/custom/plugins/{{ item.name }}"
     version: "{{ item.version | default('master') }}"
     depth: 1
     update: false
-  environment: "{{ zsh_git_clone_env }}"
   loop: "{{ zsh_external_plugins }}"
   loop_control:
     label: "{{ item.name }}"
+  register: zsh_plugin_clone
+  until: zsh_plugin_clone is succeeded
+  retries: 3
+  delay: 5
   tags: [zsh]
 
-# Hamma user o'qiy olishi uchun top katalog world-readable bo'lsin (git klon
-# odatda 0755 beradi; bu kafolat).
-- name: Ensure shared Oh My Zsh directory is world-readable
+# A git clone is usually 0755, but enforce world-readable permissions on the
+# top-level directory so every user can read the shared framework.
+- name: Ensure the shared Oh My Zsh directory is world-readable
   ansible.builtin.file:
     path: "{{ zsh_ohmyzsh_dir }}"
     state: directory

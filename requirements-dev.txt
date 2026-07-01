@@ -1,8 +1,8 @@
-# Faqat LOKAL TEST uchun (molecule). Production/boshqaruvga aloqasi yo'q —
-# shuning uchun requirements.txt dan ajratilgan. O'rnatish: make molecule-setup
+# LOCAL TESTING only (molecule). Not used in production/management, which is
+# why it is kept separate from requirements.txt. Install with: make molecule-setup
 #
-# Docker driver kerak (konteynerlarda rol test qilinadi). molecule 6.x
-# ansible-core 2.16 bilan mos.
+# The Docker driver is required (roles are tested in containers). molecule 6.x
+# is compatible with ansible-core 2.16.
 molecule>=6,<7
 molecule-plugins[docker]>=23,<24
 docker>=7

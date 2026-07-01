@@ -5,53 +5,130 @@
   vars:
     ansible_user: root
     dropin: /etc/ssh/sshd_config.d/00-ansible.conf
+    sshd_config: /etc/ssh/sshd_config
     backup_dir: /etc/ssh/.ansible-backup
+    include_line: "Include /etc/ssh/sshd_config.d/*.conf"
+    # Regex patterns (single-quoted so the backslashes stay literal). (?m) makes
+    # ^ match at the start of every line so we match real directive lines only.
+    re_allowusers: '(?m)^[ \t]*AllowUsers\b'
+    re_allowusers_user: '(?m)^[ \t]*AllowUsers\b.*\b{{ ansible_user }}\b'
+    re_passwordauth_no: '(?m)^[ \t]*PasswordAuthentication[ \t]+no\b'
+    re_permitroot_no: '(?m)^[ \t]*PermitRootLogin[ \t]+no\b'
+    re_match_root: '(?m)^[ \t]*Match[ \t]+User[ \t]+root\b'
+    re_x11_no: '(?m)^[ \t]*X11Forwarding[ \t]+no\b'
   tasks:
-    # ---------- Happy path (converge valid configni qo'lladi) ----------
-    - name: Drop-in created (both test images support Include)
+    # ---------- Detect which path the role took on THIS host ----------
+    # Modern sshd (Include supported)         -> drop-in file          (path A)
+    # Old sshd, e.g. Ubuntu 18.04/OpenSSH 7.6 -> main sshd_config only (path B)
+    # The verify must work for both, so we branch on whether the drop-in exists.
+    - name: Stat the drop-in
       ansible.builtin.stat:
         path: "{{ dropin }}"
       register: dropin_stat
 
-    - name: Assert drop-in exists
-      ansible.builtin.assert:
-        that: dropin_stat.stat.exists
-        fail_msg: "drop-in yaratilmadi: {{ dropin }}"
+    - name: Set managed-file facts (path A = drop-in, path B = main sshd_config)
+      ansible.builtin.set_fact:
+        used_dropin: "{{ dropin_stat.stat.exists }}"
+        managed_file: "{{ dropin if dropin_stat.stat.exists else sshd_config }}"
 
-    - name: Read drop-in
+    # ---------- Happy path: the managed directives were applied ----------
+    - name: Read the managed config file
       ansible.builtin.slurp:
-        src: "{{ dropin }}"
-      register: dropin_content
+        src: "{{ managed_file }}"
+      register: managed_slurp
 
-    - name: Assert drop-in has AllowUsers + hardening + Match
+    - name: Decode the managed config
+      ansible.builtin.set_fact:
+        managed_text: "{{ managed_slurp.content | b64decode }}"
+
+    - name: Assert AllowUsers is present and includes the connection user (lockout guard)
       ansible.builtin.assert:
         that:
-          - "'AllowUsers' in (dropin_content.content | b64decode)"
-          - "'PermitRootLogin no' in (dropin_content.content | b64decode)"
-          - "'Match User root' in (dropin_content.content | b64decode)"
-        fail_msg: "drop-in mazmuni kutilganidek emas"
+          - managed_text is search(re_allowusers)
+          - managed_text is search(re_allowusers_user)
+        fail_msg: >-
+          AllowUsers is missing or does not include {{ ansible_user }}
+          in {{ managed_file }}
 
+    - name: Assert the hardening directives were written
+      ansible.builtin.assert:
+        that:
+          - managed_text is search(re_passwordauth_no)
+          - managed_text is search(re_permitroot_no)
+        fail_msg: >-
+          Expected hardening directives (PasswordAuthentication no /
+          PermitRootLogin no) are missing in {{ managed_file }}
+
+    - name: Assert the Match block rendered (header AND rule body)
+      ansible.builtin.assert:
+        that:
+          - managed_text is search(re_match_root)
+          - managed_text is search(re_x11_no)
+        fail_msg: >-
+          Match block for 'User root' (X11Forwarding no) not rendered
+          in {{ managed_file }}
+
+    # ---------- Path A only: drop-in file properties + Include wiring ----------
+    - name: Assert the drop-in ownership and mode (root:root 0644)
+      ansible.builtin.assert:
+        that:
+          - dropin_stat.stat.pw_name == 'root'
+          - dropin_stat.stat.gr_name == 'root'
+          - dropin_stat.stat.mode == '0644'
+        fail_msg: >-
+          drop-in has the wrong owner/group/mode:
+          {{ dropin_stat.stat.pw_name }}:{{ dropin_stat.stat.gr_name }}
+          {{ dropin_stat.stat.mode }}
+      when: used_dropin | bool
+
+    - name: Read the main sshd_config (drop-in path — check Include + no stray AllowUsers)
+      ansible.builtin.slurp:
+        src: "{{ sshd_config }}"
+      register: main_cfg
+      when: used_dropin | bool
+
+    - name: Assert main sshd_config Includes the drop-in dir and has no active AllowUsers
+      ansible.builtin.assert:
+        that:
+          # The drop-in only wins if the Include line is present.
+          - include_line in (main_cfg.content | b64decode)
+          # AllowUsers is additive (union): it must be removed from the main file
+          # so it does not union with the drop-in's AllowUsers.
+          - not ((main_cfg.content | b64decode) is search(re_allowusers))
+        fail_msg: >-
+          main sshd_config is missing the Include line, or still has an active
+          AllowUsers (which would union with the drop-in)
+      when: used_dropin | bool
+
+    # ---------- Combined config validity + backup cleanup (all hosts) ----------
     - name: Full sshd config is valid (combined)
       ansible.builtin.command: sshd -t
       changed_when: false
 
-    - name: No leftover backup after successful run (always cleaned)
+    - name: Stat leftover backups (always-block should have removed them)
       ansible.builtin.stat:
-        path: "{{ backup_dir }}/sshd_config.bak"
+        path: "{{ item }}"
+      loop:
+        - "{{ backup_dir }}/sshd_config.bak"
+        - "{{ backup_dir }}/dropin.conf.bak"
       register: bak_stat
 
-    - name: Assert backup cleaned
+    - name: Assert no leftover backup after a successful run
       ansible.builtin.assert:
-        that: not bak_stat.stat.exists
-        fail_msg: "zaxira tozalanmagan: {{ backup_dir }}/sshd_config.bak"
+        that:
+          - not item.stat.exists
+        fail_msg: "backup was not cleaned up: {{ item.item }}"
+      loop: "{{ bak_stat.results }}"
+      loop_control:
+        label: "{{ item.item }}"
 
-    # ---------- Rollback path (ataylab buzuq config) ----------
-    - name: Snapshot known-good drop-in
+    # ---------- Rollback path (deliberately broken config) ----------
+    - name: Snapshot the known-good managed config
       ansible.builtin.slurp:
-        src: "{{ dropin }}"
+        src: "{{ managed_file }}"
       register: known_good
 
-    - name: Apply broken config — expect role failure + rollback
+    - name: Apply broken config (expect role failure + rollback)
       block:
         - name: Run ssh role with an invalid sshd directive
           ansible.builtin.include_role:
@@ -73,11 +150,11 @@
     - name: Assert broken config caused failure
       ansible.builtin.assert:
         that: rollback_worked | default(false)
-        fail_msg: "buzuq config fail bermadi — rollback/guard ishlamadi"
+        fail_msg: "the broken config did not fail — rollback/guard did not work"
 
-    - name: Re-read drop-in after rollback
+    - name: Re-read the managed config after rollback
       ansible.builtin.slurp:
-        src: "{{ dropin }}"
+        src: "{{ managed_file }}"
       register: after_rollback
 
     - name: Assert config restored to known-good (no bad directive on disk)
@@ -85,18 +162,25 @@
         that:
           - (after_rollback.content | b64decode) == (known_good.content | b64decode)
           - "'ThisDirectiveDoesNotExist' not in (after_rollback.content | b64decode)"
-        fail_msg: "rollback eski (known-good) configni tiklamadi"
+        fail_msg: "rollback did not restore the old (known-good) config"
 
     - name: sshd config still valid after rollback
       ansible.builtin.command: sshd -t
       changed_when: false
 
-    - name: No leftover backup after rollback (always cleaned)
+    - name: Stat leftover backups after rollback
       ansible.builtin.stat:
-        path: "{{ backup_dir }}/sshd_config.bak"
+        path: "{{ item }}"
+      loop:
+        - "{{ backup_dir }}/sshd_config.bak"
+        - "{{ backup_dir }}/dropin.conf.bak"
       register: bak_stat2
 
-    - name: Assert backup cleaned after rollback
+    - name: Assert no leftover backup after rollback
       ansible.builtin.assert:
-        that: not bak_stat2.stat.exists
-        fail_msg: "rollbackdan keyin zaxira tozalanmagan"
+        that:
+          - not item.stat.exists
+        fail_msg: "backup was not cleaned up after rollback: {{ item.item }}"
+      loop: "{{ bak_stat2.results }}"
+      loop_control:
+        label: "{{ item.item }}"

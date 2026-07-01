@@ -1,11 +1,11 @@
-# ANSIBLE BOSHQARADI — users roli. Qo'lda tahrirlamang.
-# Oh My Zsh UMUMIY (shared) o'rnatilgan; bu fayl unga ishora qiladi.
+# MANAGED BY ANSIBLE — users role. Do not edit by hand.
+# Oh My Zsh is installed SHARED (system-wide); this file points at it.
 export ZSH="{{ users_zsh_ohmyzsh_dir }}"
 
-# Kesh va .zcompdump — per-user yoziladigan joyda ($ZSH read-only bo'lgani uchun).
+# Cache and .zcompdump go to a per-user writable location (because $ZSH is read-only).
 export ZSH_CACHE_DIR="$HOME/.cache/oh-my-zsh"
 
-# Shared/read-only o'rnatma — auto-update o'chiq (root repo'ni user pull qila olmaydi).
+# Shared/read-only install — auto-update is disabled (a user cannot pull the root-owned repo).
 export DISABLE_AUTO_UPDATE="true"
 
 ZSH_THEME="{{ users_zsh_theme }}"

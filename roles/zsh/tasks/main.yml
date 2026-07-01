@@ -1,31 +1,33 @@
 ---
-# zsh roli (TIZIM darajasi): zsh'ni o'rnatadi, /etc/shells, tizim default shell,
-# va Oh My Zsh framework'ni UMUMIY (shared) o'rnatadi — bir marta, hamma user
-# foydalanadi. Per-user .zshrc (theme, plugin tanlovi) `users` rolida.
-# OS-guard: host qo'llab-quvvatlanmaydigan OS oilasida bo'lsa, rolni xabar bilan
-# skip qilamiz (vars/<OS>.yml yo'qligi sababli include_vars yiqilishini oldini oladi).
-- name: zsh — skip on unsupported OS family
+# zsh role (SYSTEM level): installs zsh, registers it in /etc/shells, sets it as
+# the system default shell, and installs the Oh My Zsh framework in a SHARED
+# location used by every user. Per-user .zshrc (theme, plugin selection) is
+# handled by the `users` role.
+#
+# OS guard: if the host runs an unsupported OS family, the role is skipped with
+# a message. This prevents include_vars from failing on a missing vars/<OS>.yml.
+- name: Skip role on unsupported OS family
   ansible.builtin.debug:
     msg: >-
-      zsh roli '{{ ansible_os_family }}' OS oilasida qo'llab-quvvatlanmaydi
-      (ruxsat etilgan: {{ zsh_supported_os_families | join(', ') }}). Skip qilinmoqda.
+      The zsh role does not support the '{{ ansible_os_family }}' OS family
+      (supported: {{ zsh_supported_os_families | join(', ') }}). Skipping.
   when: ansible_os_family not in zsh_supported_os_families
   tags: [zsh]
 
-- name: zsh — role tasks (only on supported OS family)
+- name: Run role tasks (supported OS family only)
   when: ansible_os_family in zsh_supported_os_families
   tags: [zsh]
   block:
-    - name: Include OS-specific variables
+    - name: Load OS-specific variables
       ansible.builtin.include_vars: "{{ ansible_os_family }}.yml"
 
-    - name: Install zsh and register login shell
+    - name: Install zsh and register it as a login shell
       ansible.builtin.include_tasks: install.yml
 
     - name: Set zsh as the system default shell for new users
       ansible.builtin.include_tasks: default_shell.yml
       when: zsh_set_system_default | bool
 
-    - name: Install shared Oh My Zsh framework + plugins
+    - name: Install the shared Oh My Zsh framework and plugins
       ansible.builtin.include_tasks: ohmyzsh.yml
       when: zsh_install_ohmyzsh | bool

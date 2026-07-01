@@ -1,9 +1,9 @@
 ---
-# Versiyalar ataylab pin qilingan: eski OS (Python 3.6) ni boshqaramiz va
-# ansible-core 2.16 ishlatamiz. Yangi collection versiyalari (community.general
-# 10+, ansible.posix 2+) ansible-core >=2.17 va target Python 3.7+ talab qiladi
-# (modullarida `from __future__ import annotations` bor) -> 3.6 da yiqiladi.
-# Quyidagilar 2.16 + py3.6 bilan mos oxirgi xavfsiz versiyalar.
+# Versions are intentionally pinned: we manage legacy hosts (Python 3.6) with
+# ansible-core 2.16. Newer collection releases (community.general 10+,
+# ansible.posix 2+) require ansible-core >=2.17 and target Python 3.7+ (their
+# modules use `from __future__ import annotations`) -> they fail on 3.6.
+# The versions below are the last ones safely compatible with 2.16 + py3.6.
 collections:
   - name: community.general
     version: "9.5.0"

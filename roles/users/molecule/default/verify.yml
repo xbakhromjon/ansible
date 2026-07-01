@@ -5,85 +5,153 @@
   vars:
     expected_shell: /bin/zsh
   tasks:
-    - name: Barcha passwd yozuvlarini olish
+    - name: Read all passwd entries
       ansible.builtin.getent:
         database: passwd
 
-    - name: present/disabled userlar mavjudligini tasdiqlash
+    - name: Assert present/disabled users exist
       ansible.builtin.assert:
         that:
           - item in getent_passwd
-        fail_msg: "{{ item }} foydalanuvchisi topilmadi"
-      loop: [alice, carol, bob]
+        fail_msg: "user {{ item }} not found"
+      loop: [ alice, carol, bob ]
 
-    - name: shell /bin/zsh ekanini tasdiqlash (default shell)
+    - name: Assert the shell is /bin/zsh (default shell)
       ansible.builtin.assert:
         that:
           - getent_passwd[item][5] == expected_shell
-        fail_msg: "{{ item }} shell {{ getent_passwd[item][5] }} (kutilgan {{ expected_shell }})"
-      loop: [alice, carol, bob]
+        fail_msg: "{{ item }} shell is {{ getent_passwd[item][5] }} (expected {{ expected_shell }})"
+      loop: [ alice, carol, bob ]
 
-    - name: dave (absent) o'chirilganini tasdiqlash
+    - name: Assert dave (absent) was removed
       ansible.builtin.assert:
         that:
           - "'dave' not in getent_passwd"
-        fail_msg: "dave hali ham mavjud — 'absent' ishlamadi"
+        fail_msg: "dave still exists — 'absent' did not work"
 
-    - name: alice uchun sudoers fayli holati
+    - name: Stat the sudoers file for alice
       ansible.builtin.stat:
         path: /etc/sudoers.d/alice
       register: alice_sudo
 
-    - name: alice passwordless sudo olganini tasdiqlash
+    - name: Assert alice got passwordless sudo
       ansible.builtin.assert:
         that:
           - alice_sudo.stat.exists
-        fail_msg: "alice uchun /etc/sudoers.d/alice yo'q"
+        fail_msg: "/etc/sudoers.d/alice is missing for alice"
 
-    - name: sudosiz/disabled userlarda sudoers fayli holati
+    - name: Stat the sudoers file for non-sudo/disabled users
       ansible.builtin.stat:
         path: "/etc/sudoers.d/{{ item }}"
-      loop: [carol, bob]
+      loop: [ carol, bob ]
       register: nosudo
 
-    - name: ularda sudoers fayli YO'Qligini tasdiqlash
+    - name: Assert they have NO sudoers file
       ansible.builtin.assert:
         that:
           - not item.stat.exists
-        fail_msg: "{{ item.item }} uchun sudoers fayli bo'lmasligi kerak edi"
+        fail_msg: "{{ item.item }} should not have a sudoers file"
       loop: "{{ nosudo.results }}"
       loop_control:
         label: "{{ item.item }}"
 
-    - name: alice authorized_keys mazmunini o'qish
+    - name: Read alice's authorized_keys
       ansible.builtin.slurp:
         src: /home/alice/.ssh/authorized_keys
       register: alice_ak
 
-    - name: kalit fayldan o'rnatilganini tasdiqlash
+    - name: Assert the key was installed from the file
       ansible.builtin.assert:
         that:
           - "'alice@molecule-test' in (alice_ak.content | b64decode)"
-        fail_msg: "alice authorized_keys da fixture kaliti yo'q"
+        fail_msg: "the fixture key is missing from alice's authorized_keys"
 
-    - name: bob parol holatini olish (lock tekshiruvi)
-      ansible.builtin.command: passwd -S bob
-      register: bob_pw
-      changed_when: false
+    # bob (disabled) — read lock and expiry straight from /etc/shadow. `passwd -S`
+    # / `chage` depend on external binaries that may be absent on minimal images
+    # (e.g. rocky-8); getent shadow behaves the same on Debian and RedHat.
+    - name: Read bob's shadow entry (lock/expiry check)
+      ansible.builtin.getent:
+        database: shadow
+        key: bob
 
-    - name: bob paroli locked ekanini tasdiqlash
+    - name: Assert bob's password is locked (hash starts with '!')
       ansible.builtin.assert:
         that:
-          - bob_pw.stdout.split()[1] is match('L')
-        fail_msg: "bob locked emas: {{ bob_pw.stdout }}"
+          - ansible_facts.getent_shadow['bob'][0] is match('^!')
+        fail_msg: "bob is not locked: shadow password '{{ ansible_facts.getent_shadow['bob'][0] }}'"
 
-    - name: bob account expiry holatini olish
-      ansible.builtin.command: chage -l bob
-      register: bob_chage
-      changed_when: false
-
-    - name: bob account expire qilinganini tasdiqlash (1970)
+    # The shadow expire field (index 6) is days since the epoch. expires: 1
+    # (1 second) becomes 0 days (1970-01-01), i.e. the past. Empty => never
+    # expires. An active account has this field empty or a large number.
+    - name: Assert bob's account is expired (a past date)
       ansible.builtin.assert:
         that:
-          - "'1970' in bob_chage.stdout"
-        fail_msg: "bob account expire qilinmagan: {{ bob_chage.stdout }}"
+          - ansible_facts.getent_shadow['bob'][6] | length > 0
+          - ansible_facts.getent_shadow['bob'][6] | int <= 1
+        fail_msg: "bob's account is not expired: expire={{ ansible_facts.getent_shadow['bob'][6] }}"
+
+    # --- absent user: safe delete must preserve the home ---
+    - name: Stat dave's home directory (absent — home must be preserved)
+      ansible.builtin.stat:
+        path: /home/dave
+      register: dave_home
+
+    - name: Assert dave's home was preserved (safe delete)
+      ansible.builtin.assert:
+        that:
+          - dave_home.stat.exists
+          - dave_home.stat.isdir
+        fail_msg: "/home/dave was removed — safe delete should preserve the home"
+
+    # --- per-user zsh environment (.zshrc) — only for present + zsh users ---
+    - name: Stat .zshrc for present zsh users
+      ansible.builtin.stat:
+        path: "/home/{{ item }}/.zshrc"
+      loop: [ alice, carol ]
+      register: zshrc_stat
+
+    - name: Assert .zshrc exists and is owned by the user
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+          - item.stat.pw_name == item.item
+        fail_msg: "{{ item.item }}'s .zshrc is missing or has the wrong owner"
+      loop: "{{ zshrc_stat.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Read alice's .zshrc
+      ansible.builtin.slurp:
+        src: /home/alice/.zshrc
+      register: alice_zshrc
+
+    - name: Assert .zshrc has the shared OMZ path, theme, and plugins
+      ansible.builtin.assert:
+        that:
+          - "'/usr/share/oh-my-zsh' in content"
+          - "'dieter' in content"
+          - "'zsh-syntax-highlighting' in content"
+        fail_msg: "alice's .zshrc does not have the expected settings"
+      vars:
+        content: "{{ alice_zshrc.content | b64decode }}"
+
+    - name: Stat .zshrc for bob (disabled)
+      ansible.builtin.stat:
+        path: /home/bob/.zshrc
+      register: bob_zshrc
+
+    # On some distributions (RedHat) the zsh package installs /etc/skel/.zshrc,
+    # which is copied into the home when a user is created. So we do not check
+    # that .zshrc is entirely absent, but that the ROLE-MANAGED .zshrc (the one
+    # pointing at the shared OMZ) was not deployed to bob.
+    - name: Read bob's .zshrc (if present)
+      ansible.builtin.slurp:
+        src: /home/bob/.zshrc
+      register: bob_zshrc_content
+      when: bob_zshrc.stat.exists
+
+    - name: Assert bob did NOT get the role-managed .zshrc (disabled user)
+      ansible.builtin.assert:
+        that:
+          - not bob_zshrc.stat.exists or ('/usr/share/oh-my-zsh' not in (bob_zshrc_content.content | b64decode))
+        fail_msg: "bob got the role-managed .zshrc — zsh should not be configured for a disabled user"

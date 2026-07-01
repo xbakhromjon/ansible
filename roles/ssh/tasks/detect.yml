@@ -1,12 +1,12 @@
 ---
-# Bu tizim sshd'si `Include` direktivasini qo'llab-quvvatlaydimi?
-# Include sshd_config uchun OpenSSH 8.2+ da qo'shilgan, LEKIN RHEL8 kabi distrolar
-# uni 8.0 ga backport qilgan. Shuning uchun VERSIYA emas, HAQIQIY SINOV qilamiz —
-# backport'larni ham to'g'ri aniqlaydi.
-#   qo'llasa  -> drop-in (dropin.yml)
-#   qo'llamasa (Ubuntu 18.04 / OpenSSH 7.6) -> asosiy faylga (mainconfig.yml)
+# Does this system's sshd support the `Include` directive?
+# Include for sshd_config was added in OpenSSH 8.2+, BUT distros like RHEL8 have
+# backported it to 8.0. So instead of checking the VERSION, we RUN A REAL TEST —
+# which also correctly detects backports.
+#   supported     -> drop-in (dropin.yml)
+#   not supported (Ubuntu 18.04 / OpenSSH 7.6) -> main config (mainconfig.yml)
 
-- name: Probe — minimal Include test config yozish
+- name: Probe — write a minimal Include test config
   ansible.builtin.copy:
     dest: /tmp/.ansible_sshd_include_probe
     content: "Include /dev/null\n"
@@ -14,7 +14,7 @@
   changed_when: false
   tags: [ssh]
 
-- name: Probe — sshd Include direktivasini qabul qiladimi?
+- name: Probe — does sshd accept the Include directive?
   ansible.builtin.command: "{{ ssh_sshd_bin }} -t -f /tmp/.ansible_sshd_include_probe"
   register: ssh_include_probe
   changed_when: false
@@ -26,7 +26,7 @@
     ssh_supports_include: "{{ ssh_include_probe.rc == 0 }}"
   tags: [ssh]
 
-- name: Probe — tozalash
+- name: Probe — cleanup
   ansible.builtin.file:
     path: /tmp/.ansible_sshd_include_probe
     state: absent

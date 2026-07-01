@@ -1,62 +1,64 @@
 ---
-# Yaratiladigan foydalanuvchilar ro'yxati (dict). Struktura uchun
-# group_vars/all/users.yml dagi izohga qarang.
+# List of users to create (dicts). See the comment in group_vars/all/users.yml
+# for the structure.
 users_users: [ ]
 
-# Yangi foydalanuvchilar uchun standart shell. /bin/zsh ni `zsh` roli
-# o'rnatadi va /etc/shells ga yozadi — shuning uchun bootstrap'da `zsh`
-# roli `users` dan OLDIN ishlashi kerak (binar mavjud bo'lishi uchun).
-# Bitta userga boshqa shell kerak bo'lsa, uning `shell:` maydonini bering.
+# Default shell for new users. /bin/zsh is installed by the `zsh` role, which
+# also registers it in /etc/shells — so in the bootstrap the `zsh` role must run
+# BEFORE `users` (so the binary exists). Give a user's `shell:` field to override
+# it for a single user.
 users_default_shell: /bin/zsh
 users_create_home: true
 
-# Yangi userlarning dastlabki paroli (plaintext, vault'dan keladi). Map:
-# { login_nomi: plaintext_parol }. group_vars/all/users.yml da
-# vault_user_passwords (shifrlangan) dan to'ldiriladi. Bo'sh => parolsiz.
+# Initial password for new users (plaintext, sourced from the vault). Map of
+# { login_name: plaintext_password }. Populated from vault_user_passwords
+# (encrypted) in group_vars/all/users.yml. Empty => no password.
 users_passwords: { }
 
-# true bo'lsa: dastlabki parol olgan yangi user birinchi loginда parolni
-# almashtirishga majbur bo'ladi (chage -d 0). Faqat yaratilishda — bir marta.
+# When true, a newly created user who received an initial password is forced to
+# change it on first login (chage -d 0). Only on creation — once.
 users_force_password_change: false
 
-# --- UNMANAGED userlarni tozalash (XAVFLI) ---
-# true bo'lsa: users_users da YO'Q inson userlar safe-delete qilinadi (akkaunt
-# o'chadi, home QOLADI). Ya'ni users_users — yagona haqiqat (whitelist).
-# >>> YOQISHDAN OLDIN: users_users TO'LIQ ekaniga ishonch hosil qiling va
-#     ALBATTA avval --check bilan ishlating (preview ko'rsatiladi).
-# Himoya: faqat UID oralig'idagi (inson) userlar; tizim akkauntlari,
-# ansible_user va users_prune_keep HECH QACHON o'chirilmaydi.
+# --- Pruning UNMANAGED users (DANGEROUS) ---
+# When true, human users NOT listed in users_users are safe-deleted (the account
+# is removed, the home is KEPT). That is, users_users becomes the single source
+# of truth (a whitelist).
+# >>> BEFORE ENABLING: make sure users_users is COMPLETE, and ALWAYS run with
+#     --check first (a preview is shown).
+# Protection: only users within the (human) UID range; system accounts,
+# ansible_user, and users_prune_keep are NEVER removed.
 users_prune_unmanaged: false
 
-# "Inson user" UID oralig'i (login.defs: odatda 1000..60000). Bundan tashqaridagi
-# (tizim) akkauntlar prune'ga tushmaydi.
+# "Human user" UID range (login.defs: usually 1000..60000). Accounts outside this
+# range (system accounts) are never pruned.
 users_human_uid_min: 1000
 users_human_uid_max: 60000
 
-# Prune'dan DOIM himoyalanadigan loginlar (break-glass akkaunt va h.k.).
-# ansible_user avtomatik himoyalangan — bu yerga yozish shart emas.
+# Logins that are ALWAYS protected from pruning (break-glass accounts, etc.).
+# ansible_user is protected automatically — no need to list it here.
 users_prune_keep: []
 
-# ssh_keys ro'yxatidagi har bir element shu papkadagi fayl nomi (public key).
-# Kalit matni o'sha fayldan o'qiladi. playbook_dir = .../ansible/playbooks
-# bo'lgani uchun loyiha ildizidagi files/ssh_keys ga ishora qilamiz.
+# Each entry in a user's ssh_keys list is a file name in this directory (a public
+# key). The key text is read from that file. Since playbook_dir is
+# .../ansible/playbooks, we point at files/ssh_keys in the project root.
 users_ssh_keys_dir: "{{ playbook_dir }}/../files/ssh_keys"
 
-# --- Per-user zsh muhiti (.zshrc) ---
-# User yaratilgandan KEYIN uning .zshrc'sini joylaydi (present + zsh shell).
-# Oh My Zsh framework va pluginlar `zsh` roli tomonidan UMUMIY (shared)
-# o'rnatilgan — bu yer faqat per-user .zshrc (shared'ga ishora). false => shell.
+# --- Per-user zsh environment (.zshrc) ---
+# AFTER a user is created, deploy their .zshrc (present + zsh shell). The Oh My
+# Zsh framework and plugins are installed SHARED by the `zsh` role — this only
+# deploys the per-user .zshrc (which points at the shared install). false => skip.
 users_zsh_setup: true
 
-# ~/.zshrc dagi ZSH_THEME.
+# ZSH_THEME in ~/.zshrc.
 users_zsh_theme: "dieter"
 
-# plugins=(...) — yoqiladigan pluginlar (shared OMZ'da o'rnatilgan bo'lishi kerak).
-# Tartib muhim: zsh-syntax-highlighting OXIRIDA.
+# plugins=(...) — plugins to enable (must be installed in the shared OMZ).
+# Order matters: zsh-syntax-highlighting must be LAST.
 users_zsh_plugins:
   - git
   - zsh-autosuggestions
   - zsh-syntax-highlighting
 
-# Shared Oh My Zsh joyi (zsh roli o'rnatadi). .zshrc shu ZSH'ga ishora qiladi.
+# Location of the shared Oh My Zsh install (set up by the `zsh` role). .zshrc
+# points its ZSH at this path.
 users_zsh_ohmyzsh_dir: "{{ zsh_ohmyzsh_dir | default('/usr/share/oh-my-zsh') }}"

@@ -3,8 +3,8 @@
   ansible.builtin.include_tasks: users.yml
   tags: [users]
 
-# users_users — yagona haqiqat (whitelist). Ro'yxatda YO'Q inson userlar
-# safe-delete qilinadi. XAVFLI — faqat users_prune_unmanaged: true bo'lganda.
+# users_users is the single source of truth (a whitelist). Human users NOT in
+# the list are safe-deleted. DANGEROUS — only when users_prune_unmanaged: true.
 - name: Prune unmanaged human users (safe-delete)
   ansible.builtin.include_tasks: prune.yml
   when: users_prune_unmanaged | bool

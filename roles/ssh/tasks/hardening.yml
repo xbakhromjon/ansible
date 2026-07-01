@@ -1,9 +1,9 @@
 ---
-# sshd hardening LOCKOUT GUARD — direktivalar dropin.yml da (template) yoziladi.
-# Bu fayl faqat: parol o'chirilayotgan bo'lsa, ansible_user kalitisiz qolib
-# ketmasligini tekshiradi (aks holda playbook to'xtaydi).
+# sshd hardening LOCKOUT GUARD — the directives themselves are written in
+# dropin.yml (template). This file only checks that, if password auth is being
+# disabled, ansible_user is not left without a key (otherwise the playbook stops).
 
-- name: Hardening — parol-auth o'chirilyaptimi (lockout tekshiruvi uchun)
+- name: Hardening — is password auth being disabled (for the lockout check)?
   ansible.builtin.set_fact:
     ssh_disabling_password: >-
       {{ (ssh_hardening_directives.PasswordAuthentication | default('yes'))
@@ -11,31 +11,31 @@
   tags: [ssh, ssh_hardening]
 
 # --- LOCKOUT GUARD ---------------------------------------------------------
-# Parol o'chirilsa, ansible_user faqat kalit bilan kira oladi. Kaliti yo'q bo'lsa
-# hammamiz tashqarida qolamiz — shuning uchun oldindan tekshiramiz.
-- name: Lockout guard — {{ ansible_user }} uy katalogini aniqlash
+# If password auth is disabled, ansible_user can only log in with a key. Without
+# a key we are all locked out — so we check this beforehand.
+- name: Lockout guard — resolve {{ ansible_user }}'s home directory
   ansible.builtin.getent:
     database: passwd
     key: "{{ ansible_user }}"
   when: ssh_disabling_password | bool
   tags: [ssh, ssh_hardening]
 
-- name: Lockout guard — {{ ansible_user }} authorized_keys holati
+- name: Lockout guard — {{ ansible_user }} authorized_keys status
   ansible.builtin.stat:
     path: "{{ getent_passwd[ansible_user][4] }}/.ssh/authorized_keys"
   register: ssh_user_authkeys
   when: ssh_disabling_password | bool
   tags: [ssh, ssh_hardening]
 
-- name: Lockout guard — kalit bo'lmasa to'xta
+- name: Lockout guard — stop if there is no key
   ansible.builtin.assert:
     that:
       - ssh_user_authkeys.stat.exists
       - ssh_user_authkeys.stat.size | default(0) | int > 0
     fail_msg: >-
-      PasswordAuthentication=no qilinmoqchi, lekin {{ ansible_user }} uchun
-      authorized_keys yo'q yoki bo'sh — bu LOCKOUT. Avval SSH kalitini o'rnating
-      (users roli orqali), keyin qayta urinib ko'ring. Yoki vaqtincha
-      ssh_hardening_directives.PasswordAuthentication ni "yes" qiling.
+      PasswordAuthentication=no is requested, but {{ ansible_user }} has no
+      authorized_keys or it is empty — this is a LOCKOUT. Install the SSH key
+      first (via the users role), then try again. Or temporarily set
+      ssh_hardening_directives.PasswordAuthentication to "yes".
   when: ssh_disabling_password | bool
   tags: [ssh, ssh_hardening]

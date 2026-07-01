@@ -1,20 +1,20 @@
-# ANSIBLE BOSHQARADI — ssh roli. Qo'lda tahrirlamang.
-# Barcha sshd o'zgarishlari shu drop-in'da (asosiy sshd_config daxlsiz).
+# MANAGED BY ANSIBLE — ssh role. Do not edit by hand.
+# All sshd changes live in this drop-in (the main sshd_config is left untouched).
 {% if ssh_manage_allow_users | bool %}
 
-# Kim SSH'ga kira oladi: users.yml present userlar + ansible_user + extra.
+# Who can log in over SSH: present users from users.yml + ansible_user + extra.
 AllowUsers {{ ssh_allow_users_final | join(' ') }}
 {% endif %}
 {% if ssh_manage_hardening | bool %}
 
-# Hardening direktivalari (ssh_hardening_directives).
+# Hardening directives (ssh_hardening_directives).
 {% for key, value in ssh_hardening_directives.items() %}
 {{ key }} {{ value }}
 {% endfor %}
 {% endif %}
 {% if ssh_match_blocks | default([]) %}
 
-# Match bloklari — GLOBAL direktivalardan KEYIN bo'lishi SHART.
+# Match blocks — MUST come AFTER the GLOBAL directives.
 {% for block in ssh_match_blocks %}
 Match {{ block.match }}
 {% for key, value in block.rules.items() %}

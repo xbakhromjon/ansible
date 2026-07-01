@@ -1,7 +1,7 @@
 ---
 galaxy_info:
   author: xbakhromjon
-  description: zsh o'rnatish va login shell sifatida tayyorlash
+  description: Install zsh and configure it as the login shell
   license: MIT
   min_ansible_version: "2.15"
   platforms:
