@@ -1,12 +1,16 @@
 ---
-# Test konteynerlarini tayyorlash. ssh roli sshd binari, host kalitlari va
-# ishlab turgan sshd xizmatini talab qiladi (validate + reload uchun). Bundan
-# tashqari lockout guard ansible_user (root) da authorized_keys borligini kutadi.
+# Prepare the test containers. The ssh role requires the sshd binary, host keys,
+# and a running sshd service (for validate + reload). In addition, the lockout
+# guard expects ansible_user (root) to have authorized_keys.
 - name: Prepare
   hosts: all
   become: true
   gather_facts: true
   tasks:
+    - name: "Precondition: install zsh"
+      ansible.builtin.include_role:
+        name: zsh
+
     - name: Update apt cache (Debian)
       ansible.builtin.apt:
         update_cache: true
@@ -28,8 +32,8 @@
         state: started
         enabled: true
 
-    # Lockout guard: PasswordAuthentication=no qilinganda ansible_user (root)
-    # uchun authorized_keys bo'lishi SHART — aks holda guard to'xtatadi.
+    # Lockout guard: when PasswordAuthentication=no, ansible_user (root) MUST have
+    # authorized_keys — otherwise the guard aborts.
     - name: Ensure /root/.ssh exists
       ansible.builtin.file:
         path: /root/.ssh

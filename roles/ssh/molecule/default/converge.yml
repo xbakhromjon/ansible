@@ -3,9 +3,19 @@
   hosts: all
   become: true
   vars:
-    # Docker connection'da ansible_user aniq bo'lsin (AllowUsers + lockout guard).
+    users_users:
+      - name: alice          # present + sudo + SSH key from file
+        sudo: true
+        ssh_keys:
+          - alice
+      - name: carol          # present, no key, no sudo
+      - name: bob            # disabled — created, then lock + expire
+        state: disabled
+      - name: dave           # absent — created by prepare, removed here
+        state: absent
+    # Make ansible_user explicit for the docker connection (AllowUsers + lockout guard).
     ansible_user: root
-    # Match blok renderlanishini ham sinaymiz (drop-in template / mainconfig).
+    # Also exercise Match block rendering (drop-in template / mainconfig).
     ssh_match_blocks:
       - match: "User root"
         rules:

@@ -1,14 +1,15 @@
 ---
-# ssh roli sshd o'zgarishlarini ikki yo'l bilan qo'llaydi (sshd qobiliyatiga qarab):
-#   Include qo'llasa (centos-8, modern)  -> /etc/ssh/sshd_config.d/00-ansible.conf
-#   Qo'llamasa (ubuntu-18, OpenSSH 7.6)  -> to'g'ridan-to'g'ri sshd_config
-# OS-guard: host qo'llab-quvvatlanmaydigan OS oilasida bo'lsa, rolni xabar bilan
-# skip qilamiz (vars/<OS>.yml yo'qligi sababli include_vars yiqilishini oldini oladi).
+# The ssh role applies sshd changes in one of two ways (depending on what sshd
+# supports):
+#   Include supported (centos-8, modern) -> /etc/ssh/sshd_config.d/00-ansible.conf
+#   Not supported (ubuntu-18, OpenSSH 7.6) -> directly into sshd_config
+# OS guard: if the host runs an unsupported OS family, the role is skipped with a
+# message (this prevents include_vars from failing on a missing vars/<OS>.yml).
 - name: ssh — skip on unsupported OS family
   ansible.builtin.debug:
     msg: >-
-      ssh roli '{{ ansible_os_family }}' OS oilasida qo'llab-quvvatlanmaydi
-      (ruxsat etilgan: {{ ssh_supported_os_families | join(', ') }}). Skip qilinmoqda.
+      The ssh role does not support the '{{ ansible_os_family }}' OS family
+      (supported: {{ ssh_supported_os_families | join(', ') }}). Skipping.
   when: ansible_os_family not in ssh_supported_os_families
   tags: [ssh, ssh_allow_users, ssh_hardening]
 
@@ -19,25 +20,25 @@
     - name: Include OS-specific variables
       ansible.builtin.include_vars: "{{ ansible_os_family }}.yml"
 
-    # AllowUsers ro'yxatini quradi + lockout guard (bo'sh emas, ansible_user bor).
+    # Builds the AllowUsers list + lockout guard (never empty, includes ansible_user).
     - name: Build AllowUsers list
       ansible.builtin.import_tasks: allow_users.yml
       when: ssh_manage_allow_users | bool
       tags: [ssh_allow_users]
 
-    # Parol o'chirilayotgan bo'lsa, ansible_user'da kalit borligini tekshiradi.
+    # When password auth is being disabled, verify ansible_user has a key.
     - name: Hardening lockout guard
       ansible.builtin.import_tasks: hardening.yml
       when: ssh_manage_hardening | bool
       tags: [ssh_hardening]
 
-    # sshd Include direktivasini qo'llaydimi -> ssh_supports_include.
+    # Does sshd support the Include directive -> ssh_supports_include.
     - name: Detect sshd Include support
       ansible.builtin.import_tasks: detect.yml
 
-    # Konfiguratsiyani ATOMIK qo'llash + biror bosqich fail bo'lsa AVTOMATIK
-    # rollback. apply.yml: known-good backup -> block(yozish + to'liq validate +
-    # reload) / rescue(zaxiradan tiklash + reload + fail) / always(tozalash).
-    # Drop-in (Yo'l A) yoki mainconfig (Yo'l B) tanlovi apply.yml ichida.
+    # Apply the configuration ATOMICALLY + AUTOMATIC rollback if any step fails.
+    # apply.yml: known-good backup -> block(write + full validate + reload) /
+    # rescue(restore from backup + reload + fail) / always(cleanup).
+    # The drop-in (path A) vs mainconfig (path B) choice is made inside apply.yml.
     - name: Apply sshd config (atomic, with rollback)
       ansible.builtin.import_tasks: apply.yml

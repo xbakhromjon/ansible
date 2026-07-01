@@ -1,18 +1,18 @@
 ---
-# sshd konfiguratsiyasini ATOMIK qo'llash + biror bosqich fail bo'lsa AVTOMATIK
-# rollback. Tartib:
-#   1) O'zgarishdan OLDIN known-good config(lar)ni zaxiralaymiz.
-#   2) block: yozish (har task o'z validate'i bilan) -> Include bilan BIRLASHGAN
-#      to'liq configni reload'dan OLDIN tekshirish (sshd -t) -> o'zgargan bo'lsa
-#      reload.
-#   3) rescue: biror bosqich (jumladan RELOAD) fail bo'lsa -> zaxiradan tiklash
-#      -> qayta reload -> aniq xabar bilan fail.
-#      MUHIM: reload BLOK ICHIDA oddiy task — shuning uchun reload fail'ini ham
-#      rescue ushlaydi. Handler bo'lganida ushlamasdi (handler blokdan tashqarida).
-#   4) always: zaxiralarni tozalash.
+# Apply the sshd configuration ATOMICALLY + AUTOMATIC rollback if any step fails.
+# Order:
+#   1) BEFORE changing anything, back up the known-good config(s).
+#   2) block: write (each task with its own validate) -> validate the FULL config
+#      COMBINED with the Include (sshd -t) BEFORE reload -> reload if changed.
+#   3) rescue: if any step (including the RELOAD) fails -> restore from backup
+#      -> reload again -> fail with a clear message.
+#      IMPORTANT: the reload is a plain task INSIDE the block — so rescue catches
+#      a reload failure too. A handler would not be caught (it runs outside the block).
+#   4) always: clean up the backups.
 #
-# Cheklov: rollback faqat Ansible host'ga yeta olsa ishlaydi. Shu sababli RESTART
-# emas RELOAD ishlatamiz (mavjud sessiyalar uzilmaydi -> ulanish tirik qoladi).
+# Constraint: rollback only works while Ansible can still reach the host. That is
+# why we use RELOAD, not RESTART (existing sessions are not dropped -> the
+# connection stays alive).
 
 - name: Backup — ensure backup directory exists
   ansible.builtin.file:
@@ -55,25 +55,25 @@
 - name: Apply sshd config with rollback-on-failure
   tags: [ssh]
   block:
-    # Yo'l A: Include qo'llanadi -> drop-in fayl.
+    # Path A: Include is supported -> drop-in file.
     - name: Apply via drop-in (Include supported)
       ansible.builtin.import_tasks: dropin.yml
       when: ssh_supports_include | bool
 
-    # Yo'l B: Include yo'q -> asosiy sshd_config.
+    # Path B: no Include -> main sshd_config.
     - name: Apply via main sshd_config (no Include support)
       ansible.builtin.import_tasks: mainconfig.yml
       when: not (ssh_supports_include | bool)
 
-    # Drop-in yo'lida har task'dagi validate FAQAT bo'lakni izolyatsiyada
-    # tekshiradi. Bu yerda Include bilan BIRLASHGAN to'liq configni reload'dan
-    # OLDIN tekshiramiz (combined errors shu yerda ushlanadi -> rescue).
+    # On the drop-in path, each task's validate only checks its fragment in
+    # isolation. Here we validate the FULL config COMBINED with the Include
+    # BEFORE reload (combined errors are caught here -> rescue).
     - name: Validate full sshd config (combined, before reload)
       ansible.builtin.command: "{{ ssh_sshd_bin }} -t"
       changed_when: false
 
-    # Reload faqat config o'zgarganda (idempotent). Yozuvchi task'lar register
-    # qilingan; faqat tegishli yo'l ishlaydi, qolgani skip -> changed=false.
+    # Reload only when the config actually changed (idempotent). The writing
+    # tasks are registered; only the relevant path runs, the rest skip -> changed=false.
     - name: Determine whether a reload is needed
       ansible.builtin.set_fact:
         ssh_reload_needed: >-
@@ -124,9 +124,8 @@
     - name: Fail loudly after rollback
       ansible.builtin.fail:
         msg: >-
-          sshd o'zgarishi fail bo'ldi va {{ inventory_hostname }} da oldingi
-          known-good holatga QAYTARILDI (rollback). Yuqoridagi xato chiqishini
-          tekshiring.
+          The sshd change failed and {{ inventory_hostname }} was ROLLED BACK to
+          the previous known-good state. Check the error output above.
 
   always:
     - name: Cleanup — remove config backups

@@ -1,7 +1,7 @@
 ---
 galaxy_info:
   author: xbakhromjon
-  description: SSH kirish boshqaruvi — AllowUsers (users.yml'dan, lockout himoyasi bilan)
+  description: SSH access control — AllowUsers (from users.yml, with lockout protection)
   license: MIT
   min_ansible_version: "2.15"
   platforms:

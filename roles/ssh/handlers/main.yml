@@ -1,5 +1,5 @@
 ---
-# Eslatma: sshd reload endi handler EMAS — u tasks/apply.yml dagi block ICHIDA
-# oddiy task sifatida bajariladi. Sabab: handler block'dan tashqarida, undan
-# keyin ishlaydi, shuning uchun reload fail bo'lsa rescue uni USHLAY OLMASDI.
-# Reload'ni blok ichiga ko'chirib, rollback (rescue) reload fail'ini ham qamraydi.
+# Note: the sshd reload is no longer a handler — it runs as a plain task INSIDE
+# the block in tasks/apply.yml. Reason: a handler runs outside the block, after
+# it, so rescue could NOT catch a reload failure. Moving the reload inside the
+# block lets rollback (rescue) cover a reload failure too.

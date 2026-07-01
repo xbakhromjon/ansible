@@ -1,6 +1,6 @@
 ---
-# BARCHA sshd o'zgarishlari shu yerda — bitta drop-in fayl (template).
-# Asosiy sshd_config faqat Include qatori uchun (bir martalik) tegiladi.
+# ALL sshd changes live here — a single drop-in file (template). The main
+# sshd_config is touched only once, for the Include line.
 
 - name: Ensure sshd_config.d directory exists
   ansible.builtin.file:
@@ -22,9 +22,9 @@
   register: ssh_r_dropin_template
   tags: [ssh]
 
-# Drop-in g'olib bo'lishi uchun Include faylning BOSHIDA bo'lishi kerak
-# ("birinchi qiymat g'olib"). Modern tizimlarda allaqachon bor (regexp mos
-# kelib, o'rnida qoladi); Ubuntu 18.04'da yo'q -> boshiga qo'shiladi.
+# For the drop-in to win, the Include must be at the TOP of the file
+# ("first value wins"). On modern systems it is already present (the regexp
+# matches and it stays in place); on Ubuntu 18.04 it is absent -> prepended.
 - name: Ensure sshd_config Includes the drop-in dir (at top of file)
   ansible.builtin.lineinfile:
     path: "{{ ssh_sshd_config }}"
@@ -37,10 +37,10 @@
   register: ssh_r_dropin_include
   tags: [ssh]
 
-# AllowUsers RO'YXAT direktivasi — bir nechta qator QO'SHILADI (union), "birinchi
-# g'olib" emas. Shuning uchun asosiy fayldagi eski AllowUsers drop-in'niki bilan
-# birlashib qolmasligi uchun uni o'chiramiz (skalar hardening direktivalari uchun
-# bu shart emas — ular birinchi g'olib bo'lib, drop-in ustun turadi).
+# AllowUsers is a LIST directive — multiple lines are ADDED (union), not
+# "first wins". So we remove any old AllowUsers from the main file to keep it
+# from unioning with the drop-in's (scalar hardening directives don't need this
+# — they are first-wins, so the drop-in already takes precedence).
 - name: Remove AllowUsers from main sshd_config (additive — would union with drop-in)
   ansible.builtin.lineinfile:
     path: "{{ ssh_sshd_config }}"

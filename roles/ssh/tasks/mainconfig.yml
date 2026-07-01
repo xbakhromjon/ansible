@@ -1,8 +1,8 @@
 ---
-# Eski sshd (Ubuntu 18.04, OpenSSH < 8.2, backport'siz) `Include` ni
-# qo'llamaydi — drop-in ishlamaydi. Shuning uchun to'g'ridan-to'g'ri asosiy
-# sshd_config'ga yozamiz (eski usul). lineinfile bitta qatorni ALMASHTIRADI,
-# shuning uchun AllowUsers union muammosi bu yerda yo'q.
+# Old sshd (Ubuntu 18.04, OpenSSH < 8.2, no backport) does not support `Include`
+# — the drop-in won't work. So we write directly into the main sshd_config (the
+# legacy way). lineinfile REPLACES a single line, so the AllowUsers union problem
+# does not apply here.
 
 - name: Set AllowUsers in main sshd_config (no Include support)
   ansible.builtin.lineinfile:
@@ -29,7 +29,7 @@
   register: ssh_r_main_hardening
   tags: [ssh, ssh_hardening]
 
-# Match bloklari faylning OXIRIGA (global direktivalardan keyin) — blockinfile.
+# Match blocks go at the END of the file (after the global directives) — blockinfile.
 - name: Set Match blocks in main sshd_config (no Include support)
   ansible.builtin.blockinfile:
     path: "{{ ssh_sshd_config }}"
