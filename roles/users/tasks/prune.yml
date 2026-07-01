@@ -1,13 +1,13 @@
 ---
-# XAVFLI: users_users da YO'Q inson userlarni safe-delete qiladi (akkaunt o'chadi,
-# home QOLADI). Faqat users_prune_unmanaged: true bo'lganda chaqiriladi.
+# DANGEROUS: safe-deletes human users NOT in users_users (the account is removed,
+# the home is KEPT). Only invoked when users_prune_unmanaged: true.
 #
-# Ko'p qatlamli himoya — quyidagilar HECH QACHON o'chirilmaydi:
-#   - UID oralig'idan tashqari (tizim akkauntlari: root, daemon, sshd, postgres...)
-#   - ansible_user (biz ulanadigan akkaunt — lockout himoyasi)
-#   - users_users dagi barcha (boshqariladigan) userlar
-#   - users_prune_keep ro'yxatidagilar
-# Birinchi marta ALBATTA --check bilan ishlating (preview taski ro'yxatni ko'rsatadi).
+# Multi-layered protection — the following are NEVER removed:
+#   - anything outside the UID range (system accounts: root, daemon, sshd, postgres...)
+#   - ansible_user (the account we connect as — lockout protection)
+#   - every (managed) user in users_users
+#   - anything in the users_prune_keep list
+# ALWAYS run with --check first (the preview task shows the list).
 
 - name: Prune — snapshot all users on the host
   ansible.builtin.getent:
@@ -37,7 +37,7 @@
 - name: Prune — preview (these accounts will be safe-deleted; home kept)
   ansible.builtin.debug:
     msg: >-
-      Safe-delete (akkaunt o'chadi, home qoladi):
+      Safe-delete (account removed, home kept):
       {{ users_unmanaged | default([]) }}
   tags: [users, users_prune]
 

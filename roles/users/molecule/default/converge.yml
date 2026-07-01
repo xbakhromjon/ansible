@@ -3,17 +3,17 @@
   hosts: all
   become: true
   vars:
-    # Kalit fayllari shu stsenariy ichida (playbook_dir = .../molecule/default).
+    # Key files live inside this scenario (playbook_dir = .../molecule/default).
     users_ssh_keys_dir: "{{ playbook_dir }}/files/ssh_keys"
     users_users:
-      - name: alice          # present + sudo + fayldan SSH kalit
+      - name: alice          # present + sudo + SSH key from file
         sudo: true
         ssh_keys:
           - alice
-      - name: carol          # present, kalitsiz, sudosiz
-      - name: bob            # disabled — yaratiladi, so'ng lock + expire
+      - name: carol          # present, no key, no sudo
+      - name: bob            # disabled — created, then lock + expire
         state: disabled
-      - name: dave           # absent — prepare yaratgan, bu yerda o'chiriladi
+      - name: dave           # absent — created by prepare, removed here
         state: absent
   roles:
     - role: users

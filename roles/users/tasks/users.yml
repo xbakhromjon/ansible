@@ -1,15 +1,15 @@
 ---
-# Har user `state` ga ega:
-#   present  (default) — yaratiladi/faollashtiriladi, kalit+sudo qo'llanadi
-#   disabled           — account lock + expire (login bloklanadi), AKKAUNT QOLADI
-#   absent             — akkaunt o'chiriladi (safe delete), home/data SAQLANADI
+# Each user has a `state`:
+#   present  (default) — created/enabled, key + sudo applied
+#   disabled           — account lock + expire (login blocked), ACCOUNT KEPT
+#   absent             — account removed (safe delete), home/data PRESERVED
 #
-# Eslatma (source of truth): bu rol faqat ro'yxatdagi userlarni boshqaradi.
-# Kim SSH orqali kira olishi `ssh` roli (AllowUsers) bilan hal qilinadi.
+# Note (source of truth): this role only manages the users in the list. Who may
+# log in over SSH is decided by the `ssh` role (AllowUsers).
 
-# Userlar YARATILISHIDAN OLDIN mavjudlarini suratga olamiz. Shunda keyin
-# "yangi yaratilgan" (parol olgan) userlarni aniqlab, ularni birinchi logindа
-# parol almashtirishga majbur qila olamiz (chage -d 0) — idempotent.
+# Snapshot existing users BEFORE creation. This lets us later identify the
+# "newly created" users (those given a password) and force them to change it on
+# first login (chage -d 0) — idempotently.
 - name: Snapshot existing users before creation
   ansible.builtin.getent:
     database: passwd
@@ -38,10 +38,10 @@
     append: true
     shell: "{{ item.shell | default(users_default_shell) }}"
     create_home: "{{ item.create_home | default(users_create_home) }}"
-    # Parol vault'dan (users_passwords[name], plaintext) -> sha512 hash.
-    # Salt user nomidan (stabil -> idempotent). update_password: on_create —
-    # parol FAQAT yaratilishda qo'yiladi; mavjud user paroli tegilmaydi
-    # (user keyin o'zi o'zgartira oladi).
+    # Password comes from the vault (users_passwords[name], plaintext) -> sha512
+    # hash. The salt is derived from the username (stable -> idempotent).
+    # update_password: on_create — the password is only set on creation; an
+    # existing user's password is left untouched (they can change it themselves).
     password: >-
       {{ (users_passwords[item.name] | password_hash('sha512', (item.name | hash('md5'))[:16]))
          if (item.name in (users_passwords | default({})) and users_passwords[item.name] | length > 0)
@@ -54,17 +54,18 @@
   when: (item.state | default('present')) in ['present', 'disabled']
   tags: [ users ]
 
-# useradd mavjud home katalogini QAYTA egalamaydi (faqat yaratilishda). Agar user
-# o'chirilib boshqa UID bilan qayta yaratilgan bo'lsa, home (va ayniqsa .ssh /
-# authorized_keys) eski yetim UID'da qoladi -> sshd StrictModes kalitni rad etadi,
-# user home'iga yoza olmaydi.
+# useradd does not re-own an existing home directory (only on creation). If a
+# user was deleted and recreated with a different UID, the home (and especially
+# .ssh / authorized_keys) is left owned by the stale UID -> sshd StrictModes
+# rejects the key and the user cannot write to their home.
 #
-# XAVFSIZLIK: har run'da ko'r-ko'rona recursive chown qilmaymiz — root ostida,
-# user nazoratidagi katalogni follow=true bilan chown qilish symlink orqali home
-# TASHQARISIGA chiqib ketishi mumkin (privilege escalation). Buning o'rniga:
-#   1) home egasini stat bilan tekshiramiz,
-#   2) FAQAT egasi noto'g'ri bo'lsa (yetim UID / qayta yaratilgan) tiklaymiz,
-#   3) follow=false — symlink target'iga chiqilmaydi, hammasi home ichida qoladi.
+# SECURITY: we do not blindly recursive-chown on every run — under root,
+# chowning a user-controlled directory with follow=true could escape OUTSIDE the
+# home via a symlink (privilege escalation). Instead:
+#   1) check the home owner with stat,
+#   2) fix it ONLY when the owner is wrong (stale UID / recreated),
+#   3) follow=false — symlink targets are not traversed, everything stays inside
+#      the home.
 - name: Stat home directory (detect stale ownership after recreate)
   ansible.builtin.stat:
     path: "/home/{{ item.name }}"
@@ -94,8 +95,8 @@
     - (item.stat.pw_name | default('')) != item.item.name
   tags: [ users ]
 
-# CentOS/SELinux: tiklangan home'dagi .ssh/authorized_keys konteksti noto'g'ri
-# bo'lishi mumkin (ssh_home_t emas) -> sshd o'qiy olmaydi. restorecon to'g'rilaydi.
+# CentOS/SELinux: after a home is restored, the .ssh/authorized_keys context may
+# be wrong (not ssh_home_t) -> sshd cannot read it. restorecon fixes the label.
 - name: Restore SELinux context on home (RedHat/SELinux — fixes authorized_keys label)
   ansible.builtin.command: "restorecon -R -F /home/{{ item.name }}"
   loop: "{{ users_users }}"
@@ -108,9 +109,9 @@
   changed_when: false
   tags: [ users ]
 
-# Faqat YANGI yaratilgan + parol olgan userlar: birinchi loginда parolni
-# almashtirishga majbur qilamiz. users_preexisting'da bo'lganlar (eski) va
-# parolsizlar o'tkazib yuboriladi -> idempotent (har run takror majburlamaydi).
+# Only NEWLY created users that received a password: force a password change on
+# first login. Users already present (existing) and password-less users are
+# skipped -> idempotent (repeated runs do not re-force).
 - name: Force password change on first login (newly created users with a password)
   ansible.builtin.command: "chage -d 0 {{ item.name }}"
   loop: "{{ users_users }}"
@@ -155,7 +156,7 @@
     label: "{{ item.0.name }}"
   when:
     - (item.0.state | default('present')) == 'present'
-    # Bo'sh kalit fayllarini o'tkazib yuboramiz (hali kalit qo'yilmagan placeholder)
+    # Skip empty key files (placeholders where no key has been set yet).
     - (lookup('file', users_ssh_keys_dir ~ '/' ~ item.1) | trim | length) > 0
   tags: [ users ]
 
@@ -187,9 +188,9 @@
     or (item.state | default('present')) != 'present'
   tags: [ users ]
 
-# SAFE DELETE: akkaunt o'chiriladi (login imkonsiz), lekin home/data SAQLANADI
-# (userdel, -r emas). Home eski UID/GID egaligida qoladi — tiklash kerak bo'lsa
-# userni qayta yarating, "Ensure home directory ownership" taski egalikni tuzatadi.
+# SAFE DELETE: the account is removed (login impossible), but the home/data is
+# PRESERVED (userdel, not -r). The home is left owned by the old UID/GID — to
+# restore it, recreate the user and the "Fix home ownership" task corrects it.
 - name: Remove user account, keep home (absent — safe delete)
   ansible.builtin.user:
     name: "{{ item.name }}"
@@ -211,8 +212,8 @@
   when: (item.state | default('present')) == 'absent'
   tags: [ users ]
 
-# Per-user zsh muhiti — user yaratilgandan KEYIN (shu rolda) sozlanadi, shuning
-# uchun user mavjud bo'ladi. Faqat present + shell'i zsh bo'lgan userlar uchun.
+# Per-user zsh environment — configured AFTER the user is created (in this role),
+# so the user exists. Only for present users whose shell is zsh.
 - name: Configure zsh dotfiles for present users (Oh My Zsh, plugins, theme)
   ansible.builtin.include_tasks: zsh_user.yml
   loop: "{{ users_users }}"

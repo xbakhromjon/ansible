@@ -1,8 +1,8 @@
 ---
-# Per-user zsh: faqat .zshrc joylanadi (shared Oh My Zsh'ga ishora qiladi).
-# Framework va pluginlar `zsh` roli tomonidan UMUMIY o'rnatilgan — bu yerda
-# per-user klon YO'Q (egalik/SELinux/disk muammolari bartaraf etilgan).
-# loop_var: zuser (users_users dagi dict).
+# Per-user zsh: only the .zshrc is deployed (it points at the shared Oh My Zsh).
+# The framework and plugins are installed SHARED by the `zsh` role — there is NO
+# per-user clone here (ownership/SELinux/disk problems avoided).
+# loop_var: zuser (a dict from users_users).
 - name: zsh — resolve home for {{ zuser.name }}
   ansible.builtin.getent:
     database: passwd
@@ -14,7 +14,7 @@
     zsh_user_home: "{{ ansible_facts.getent_passwd[zuser.name][4] }}"
   tags: [users, users_zsh]
 
-# OMZ keshini per-user yoziladigan joyga yo'naltiramiz (shared $ZSH read-only).
+# Point the OMZ cache at a per-user writable location (the shared $ZSH is read-only).
 - name: zsh — ensure per-user OMZ cache dir for {{ zuser.name }}
   ansible.builtin.file:
     path: "{{ zsh_user_home }}/.cache/oh-my-zsh"
